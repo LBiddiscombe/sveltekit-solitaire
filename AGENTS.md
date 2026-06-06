@@ -5,17 +5,17 @@ No custom application code yet — only `sv` boilerplate.
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
-| `npm run check` | `svelte-kit sync` + `svelte-check` (typecheck) |
-| `npm run lint` | `prettier --check . && eslint .` |
-| `npm run format` | `prettier --write .` |
+| Command             | What it does                                        |
+| ------------------- | --------------------------------------------------- |
+| `npm run dev`       | Vite dev server                                     |
+| `npm run build`     | Production build                                    |
+| `npm run preview`   | Preview production build                            |
+| `npm run check`     | `svelte-kit sync` + `svelte-check` (typecheck)      |
+| `npm run lint`      | `prettier --check . && eslint .`                    |
+| `npm run format`    | `prettier --write .`                                |
 | `npm run test:unit` | Vitest (watch mode — add `-- --run` for single run) |
-| `npm run test:e2e` | `playwright install && playwright test` |
-| `npm test` | Unit (single run) + e2e |
+| `npm run test:e2e`  | `playwright install && playwright test`             |
+| `npm test`          | Unit (single run) + e2e                             |
 
 ## Testing
 

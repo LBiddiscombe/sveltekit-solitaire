@@ -1,0 +1,204 @@
+import type { Card, PileRef } from '$lib/game/deck';
+import { createDeck, shuffle, deal } from '$lib/game/deck';
+import {
+	canPlaceOnTableau,
+	canPlaceOnFoundation,
+	findMovesToFoundation,
+	canMoveFromTableau
+} from '$lib/game/rules';
+
+interface Snapshot {
+	stock: Card[];
+	waste: Card[];
+	tableau: Card[][];
+	foundations: Card[][];
+}
+
+class Game {
+	stock = $state<Card[]>([]);
+	waste = $state<Card[]>([]);
+	tableau = $state<Card[][]>([[], [], [], [], [], [], []]);
+	foundations = $state<Card[][]>([[], [], [], []]);
+
+	undoStack = $state<Snapshot[]>([]);
+
+	dragging = $state<{
+		from: PileRef;
+		cardIndex: number;
+		count: number;
+	} | null>(null);
+
+	lastAutoMove = $state<{
+		from: PileRef;
+		card: Card;
+		toFoundationIndex: number;
+	} | null>(null);
+
+	isWon = $derived(this.foundations.every((p) => p.length === 13));
+
+	canUndo = $derived(this.undoStack.length > 0);
+
+	newGame() {
+		const deck = shuffle(createDeck());
+		const dealt = deal(deck);
+		this.stock = dealt.stock;
+		this.waste = [];
+		this.tableau = dealt.tableau;
+		this.foundations = [[], [], [], []];
+		this.undoStack = [];
+		this.dragging = null;
+		this.lastAutoMove = null;
+	}
+
+	drawFromStock() {
+		if (this.stock.length === 0) {
+			this.stock = this.waste.reverse().map((c) => ({ ...c, faceUp: false }));
+			this.waste = [];
+			return;
+		}
+
+		this.saveSnapshot();
+		const count = Math.min(3, this.stock.length);
+		const drawn = this.stock.splice(-count, count);
+		for (const card of drawn) {
+			card.faceUp = true;
+			this.waste.push(card);
+		}
+	}
+
+	startDrag(ref: PileRef, cardIndex: number) {
+		if (this.dragging) return;
+		const pile = this.getPile(ref);
+		if (cardIndex < 0 || cardIndex >= pile.length) return;
+
+		if (ref.kind === 'stock') return;
+		if (ref.kind === 'waste' || ref.kind === 'foundation') {
+			if (cardIndex !== pile.length - 1) return;
+			if (!pile[cardIndex].faceUp) return;
+			this.dragging = { from: ref, cardIndex, count: 1 };
+			return;
+		}
+
+		if (ref.kind === 'tableau') {
+			const card = pile[cardIndex];
+			if (!card.faceUp) return;
+			const cardsBelow = pile.slice(cardIndex + 1);
+			if (!canMoveFromTableau(card, cardsBelow)) return;
+			this.dragging = { from: ref, cardIndex, count: pile.length - cardIndex };
+		}
+	}
+
+	cancelDrag() {
+		this.dragging = null;
+	}
+
+	endDrag(to: PileRef): boolean {
+		if (!this.dragging) return false;
+
+		const { from, cardIndex, count } = this.dragging;
+		this.dragging = null;
+
+		const sourcePile = this.getPile(from);
+		if (cardIndex >= sourcePile.length) return false;
+
+		const movingCard = sourcePile[cardIndex];
+		const targetPile = this.getPile(to);
+		const topTarget = targetPile.length > 0 ? targetPile[targetPile.length - 1] : null;
+
+		let valid = false;
+		if (to.kind === 'tableau') {
+			valid = canPlaceOnTableau(movingCard, topTarget);
+		} else if (to.kind === 'foundation') {
+			valid = count === 1 && canPlaceOnFoundation(movingCard, topTarget);
+		}
+
+		if (!valid) return false;
+
+		this.saveSnapshot();
+
+		const movedCards = sourcePile.splice(cardIndex, count);
+		targetPile.push(...movedCards);
+
+		if (from.kind === 'tableau' && sourcePile.length > 0) {
+			const newTop = sourcePile[sourcePile.length - 1];
+			if (!newTop.faceUp) {
+				newTop.faceUp = true;
+			}
+		}
+
+		return true;
+	}
+
+	autoMove(ref: PileRef, cardIndex: number): boolean {
+		const pile = this.getPile(ref);
+		if (cardIndex < 0 || cardIndex >= pile.length) return false;
+		const card = pile[cardIndex];
+		if (!card.faceUp) return false;
+
+		if (cardIndex !== pile.length - 1) return false;
+
+		const foundationIndex = findMovesToFoundation(card, this.foundations);
+		if (foundationIndex === null) return false;
+
+		this.saveSnapshot();
+
+		const [moved] = pile.splice(cardIndex, 1);
+		this.foundations[foundationIndex].push(moved);
+
+		if (ref.kind === 'tableau' && pile.length > 0) {
+			const newTop = pile[pile.length - 1];
+			if (!newTop.faceUp) {
+				newTop.faceUp = true;
+			}
+		}
+
+		this.lastAutoMove = {
+			from: ref,
+			card: moved,
+			toFoundationIndex: foundationIndex
+		};
+
+		return true;
+	}
+
+	clearAutoMoveIndicator() {
+		this.lastAutoMove = null;
+	}
+
+	undo() {
+		if (this.undoStack.length === 0) return;
+		const snap = this.undoStack.pop()!;
+		this.stock = snap.stock;
+		this.waste = snap.waste;
+		this.tableau = snap.tableau;
+		this.foundations = snap.foundations;
+		this.dragging = null;
+	}
+
+	private getPile(ref: PileRef): Card[] {
+		switch (ref.kind) {
+			case 'stock':
+				return this.stock;
+			case 'waste':
+				return this.waste;
+			case 'tableau':
+				return this.tableau[ref.index];
+			case 'foundation':
+				return this.foundations[ref.index];
+		}
+	}
+
+	private saveSnapshot() {
+		this.undoStack.push({
+			stock: this.stock.map((c) => ({ ...c })),
+			waste: this.waste.map((c) => ({ ...c })),
+			tableau: this.tableau.map((p) => p.map((c) => ({ ...c }))),
+			foundations: this.foundations.map((p) => p.map((c) => ({ ...c })))
+		});
+		if (this.undoStack.length > 100) {
+			this.undoStack.shift();
+		}
+	}
+}
+
+export const game = new Game();
