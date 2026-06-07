@@ -9,8 +9,8 @@
 		kind,
 		index,
 		emptyLabel = '',
-		cascade = 20,
-		facedownCascade = 10
+		cascade = 0.15,
+		facedownCascade = 0.08
 	}: {
 		cards: Card[];
 		kind: PileKind;
@@ -44,11 +44,16 @@
 		if (i === 0) return '0';
 		const prev = cards[i - 1];
 		const c = prev.faceUp ? cascade : facedownCascade;
-		return `calc(${c}px - var(--card-height))`;
+		return `calc(var(--card-height) * ${c} - var(--card-height))`;
 	}
 </script>
 
-<div class="flex flex-col items-center" use:dragController.dropZone={ref}>
+<div
+	class="flex flex-col items-center"
+	use:dragController.dropZone={ref}
+	data-pile-cascade={cascade}
+	data-pile-facedown-cascade={facedownCascade}
+>
 	{#if cards.length === 0}
 		<div
 			class="box-border rounded-lg border-2 border-dashed border-gray-400"

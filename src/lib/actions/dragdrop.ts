@@ -209,10 +209,17 @@ export class DragController {
 		const dstPile = (this.game as unknown as { getPile(r: PileRef): Card[] }).getPile(dest);
 		const dstCount = dstPile?.length ?? 0;
 
+		const dstEl = document.querySelector(
+			`[data-pile-kind="${dest.kind}"][data-pile-index="${dest.index}"]`
+		);
+		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+		const cascadeFrac = parseFloat(dstEl?.getAttribute('data-pile-cascade') ?? '0.15');
+		const facedownFrac = parseFloat(dstEl?.getAttribute('data-pile-facedown-cascade') ?? '0.08');
+
 		let yOffset = 0;
 		if (dest.kind === 'tableau' && dstPile) {
 			for (let j = 0; j < dstCount; j++) {
-				yOffset += dstPile[j].faceUp ? 20 : 10;
+				yOffset += dstPile[j].faceUp ? cascadeFrac * ch : facedownFrac * ch;
 			}
 		}
 		const targetRect = {

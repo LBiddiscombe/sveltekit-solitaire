@@ -39,6 +39,16 @@
 		return { x: r.left, y: r.top, width: r.width, height: r.height };
 	}
 
+	function pileCascade(kind: string, index: number): { faceup: number; facedown: number } {
+		const el = document.querySelector(`[data-pile-kind="${kind}"][data-pile-index="${index}"]`);
+		if (!el) return { faceup: 0, facedown: 0 };
+		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+		return {
+			faceup: parseFloat(el.getAttribute('data-pile-cascade') || '0.15') * ch,
+			facedown: parseFloat(el.getAttribute('data-pile-facedown-cascade') || '0.08') * ch
+		};
+	}
+
 	async function startDeal() {
 		game.busy = true;
 		const stockEl = document.querySelector('[data-pile-kind="stock"]');
@@ -61,8 +71,9 @@
 			const { column, faceUp } = plan[i];
 			const dst = pileRect('tableau', column);
 			if (!dst) continue;
+			const { facedown: facedownPx } = pileCascade('tableau', column);
 
-			const targetY = dst.y + colCounts[column] * 10;
+			const targetY = dst.y + colCounts[column] * facedownPx;
 			const target = { x: dst.x, y: targetY, width: dst.width, height: dst.height };
 
 			const card = game.stock[0];
@@ -99,17 +110,16 @@
 
 			const src = pileRect('tableau', column);
 			if (!src) break;
+			const { faceup: cascadePx, facedown: facedownPx } = pileCascade('tableau', column);
 			const colCount = game.tableau[column].length;
-			const srcY =
-				src.y +
-				(colCount - 1) * (colCount > 1 && !game.tableau[column][colCount - 2].faceUp ? 10 : 20);
+			const prev = colCount > 1 ? game.tableau[column][colCount - 2] : null;
+			const cascade = prev && !prev.faceUp ? facedownPx : cascadePx;
+			const srcY = src.y + (colCount - 1) * cascade;
 			const srcRect = { x: src.x, y: srcY, width: src.width, height: src.height };
 
 			const dst = pileRect('foundation', foundationIndex);
 			if (!dst) break;
-			const dstCount = game.foundations[foundationIndex].length;
-			const dstY = dst.y + (dstCount > 0 ? 20 : 0);
-			const dstRect = { x: dst.x, y: dstY, width: dst.width, height: dst.height };
+			const dstRect = { x: dst.x, y: dst.y, width: dst.width, height: dst.height };
 
 			game.animatingCard = {
 				from: { kind: 'tableau', index: column },
@@ -178,7 +188,7 @@
 
 	<div class="flex gap-1">
 		{#each game.tableau as column, i (i)}
-			<Pile cards={column} kind="tableau" index={i} />
+			<Pile cards={column} kind="tableau" index={i} cascade={0.25} facedownCascade={0.1} />
 		{/each}
 	</div>
 

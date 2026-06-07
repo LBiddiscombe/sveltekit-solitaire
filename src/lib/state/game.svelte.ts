@@ -104,14 +104,14 @@ class Game {
 
 	drawFromStock() {
 		if (this.stock.length === 0) {
-			this.stock = this.waste.reverse().map((c) => ({ ...c, faceUp: false }));
+			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
 			this.waste = [];
 			return;
 		}
 
 		this.saveSnapshot();
 		const count = Math.min(3, this.stock.length);
-		const drawn = this.stock.splice(-count, count);
+		const drawn = this.stock.splice(0, count);
 		for (const card of drawn) {
 			card.faceUp = true;
 			this.waste.push(card);
