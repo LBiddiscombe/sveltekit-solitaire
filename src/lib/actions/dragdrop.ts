@@ -1,18 +1,12 @@
-import type { Card, PileRef, Suit, Rank } from '$lib/game/types';
+import type { PileRef } from '$lib/game/types';
 import { game } from '$lib/state/game.svelte';
-import { animController, type Rect } from '$lib/animations/controller';
-import { animation } from '$lib/config/animation';
+import { animationHost, type Rect } from '$lib/animations/host.svelte';
 
 export interface DragGame {
 	startDrag(ref: PileRef, cardIndex: number): void;
 	endDrag(to: PileRef): boolean;
 	cancelDrag(): void;
-	autoMove(ref: PileRef, cardIndex: number): boolean;
-	findAutoMoveDestination(ref: PileRef, cardIndex: number): PileRef | null;
-	beginMove(): void;
 	dragging: { from: PileRef; cardIndex: number; count: number } | null;
-	busy: boolean;
-	animatingCard: { from: PileRef; to: PileRef; suit: Suit; rank: Rank } | null;
 }
 
 export class DragController {
@@ -47,20 +41,11 @@ export class DragController {
 		return { x: r.left, y: r.top, width: r.width, height: r.height };
 	}
 
-	private pileRect(ref: PileRef): Rect | null {
-		const el = document.querySelector(
-			`[data-pile-kind="${ref.kind}"][data-pile-index="${ref.index}"]`
-		);
-		if (!el) return null;
-		const r = el.getBoundingClientRect();
-		return { x: r.left, y: r.top, width: r.width, height: r.height };
-	}
-
 	draggable = (node: HTMLElement, ref: PileRef) => {
 		const onPointerDown = (e: PointerEvent) => {
 			if (e.button !== 0) return;
 			if (this.game.dragging) return;
-			if (this.game.busy) return;
+			if (animationHost.busy) return;
 
 			const cardEl = (e.target as HTMLElement).closest('[data-card-index]') as HTMLElement | null;
 			if (!cardEl) return;
@@ -90,16 +75,13 @@ export class DragController {
 					}
 					hasMoved = true;
 					this.sourceRect = this.cardRect(cardEl);
-					this.clone = cardEl.cloneNode(true) as HTMLElement;
-					this.clone.style.margin = '0';
-					this.clone.style.position = 'fixed';
-					this.clone.style.pointerEvents = 'none';
-					this.clone.style.zIndex = '1000';
+
+					const imgEl = cardEl.querySelector('img');
+					const imgUrl = imgEl?.src ?? '';
+					this.clone = animationHost.createDragClone(imgUrl, rect.width, rect.height);
 					this.clone.style.left = `${e.clientX - rect.width / 2}px`;
 					this.clone.style.top = `${e.clientY - rect.height / 2}px`;
-					this.clone.style.width = `${rect.width}px`;
 					this.clone.style.transform = 'rotate(3deg)';
-					document.body.appendChild(this.clone);
 					cardEl.style.transform = '';
 					cardEl.style.boxShadow = '';
 					cardEl.style.opacity = '0.3';
@@ -113,29 +95,22 @@ export class DragController {
 			const onPointerUp = async (e: PointerEvent) => {
 				if (!hasMoved) {
 					cleanup();
-					await this.animateAutoMove(ref, cardIndex, cardEl);
+					const srcRect = this.cardRect(cardEl);
+					if (srcRect) {
+						await animationHost.animateAutoMove(ref, cardIndex, srcRect);
+					}
 				} else {
 					const target = this.findDropTarget(e.clientX, e.clientY);
 					if (target) {
 						const valid = this.game.endDrag(target);
 						if (!valid && this.clone && this.sourceRect) {
-							await animController.flyBack(
-								this.clone,
-								this.sourceRect,
-								animation.dragFlyBack.flightMs,
-								animation.dragFlyBack.easing
-							);
+							await animationHost.flyBack(this.clone, this.sourceRect);
 							this.clone = null;
 							this.sourceRect = null;
 						}
 					} else {
 						if (this.clone && this.sourceRect) {
-							await animController.flyBack(
-								this.clone,
-								this.sourceRect,
-								animation.dragFlyBack.flightMs,
-								animation.dragFlyBack.easing
-							);
+							await animationHost.flyBack(this.clone, this.sourceRect);
 							this.clone = null;
 							this.sourceRect = null;
 						}
@@ -157,7 +132,7 @@ export class DragController {
 				document.removeEventListener('pointerup', onPointerUp);
 				document.removeEventListener('keydown', onKeyDown);
 				if (this.clone) {
-					this.clone.remove();
+					animationHost.removeClone(this.clone);
 					this.clone = null;
 				}
 				this.sourceRect = null;
@@ -180,67 +155,6 @@ export class DragController {
 			}
 		};
 	};
-
-	private async animateAutoMove(ref: PileRef, cardIndex: number, cardEl: HTMLElement) {
-		const dest = this.game.findAutoMoveDestination(ref, cardIndex);
-		if (!dest) return;
-
-		const srcRect = this.cardRect(cardEl);
-		if (!srcRect) return;
-
-		const dstRect = this.pileRect(dest);
-		if (!dstRect) return;
-
-		const imgEl = cardEl.querySelector('img');
-		const imgUrl = imgEl?.src ?? '';
-
-		const card = (this.game as unknown as { getPile(r: PileRef): Card[] }).getPile(ref)?.[
-			cardIndex
-		];
-		if (card) {
-			this.game.animatingCard = {
-				from: ref,
-				to: dest,
-				suit: card.suit,
-				rank: card.rank
-			};
-		}
-
-		const dstPile = (this.game as unknown as { getPile(r: PileRef): Card[] }).getPile(dest);
-		const dstCount = dstPile?.length ?? 0;
-
-		const dstEl = document.querySelector(
-			`[data-pile-kind="${dest.kind}"][data-pile-index="${dest.index}"]`
-		);
-		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
-		const cascadeFrac = parseFloat(dstEl?.getAttribute('data-pile-cascade') ?? '0.15');
-		const facedownFrac = parseFloat(dstEl?.getAttribute('data-pile-facedown-cascade') ?? '0.08');
-
-		let yOffset = 0;
-		if (dest.kind === 'tableau' && dstPile) {
-			for (let j = 0; j < dstCount; j++) {
-				yOffset += dstPile[j].faceUp ? cascadeFrac * ch : facedownFrac * ch;
-			}
-		}
-		const targetRect = {
-			x: dstRect.x,
-			y: dstRect.y + yOffset,
-			width: dstRect.width,
-			height: dstRect.height
-		};
-
-		this.game.beginMove();
-		this.game.autoMove(ref, cardIndex);
-
-		await animController.animateStatic(
-			srcRect,
-			targetRect,
-			imgUrl,
-			animation.autoMove.flightMs,
-			animation.autoMove.easing
-		);
-		this.game.animatingCard = null;
-	}
 
 	dropZone = (node: HTMLElement, ref: PileRef) => {
 		node.dataset.pileKind = ref.kind;

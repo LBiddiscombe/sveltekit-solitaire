@@ -21,3 +21,7 @@ The visible vertical offset between consecutive cards in a pile, expressed as a 
 
 **Recycle**:
 When the Stock is empty, the entire Waste pile is turned face-down to become the new Stock. The order is preserved — the next draw produces the same sequence of batches as the original cycle.
+
+**AnimationHost**:
+The single module that owns all animation state (`animatingCard`, `busy`) and manages the clone lifecycle for card animations (deal, solve, auto-move, drag, flyback). Components import it directly for reactive state. Game model does not reference it.
+_Avoid_: AnimationController, animController, inline orchestration in components

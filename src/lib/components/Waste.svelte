@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Card } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
+	import { animationHost } from '$lib/animations/host.svelte';
 	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 
@@ -13,7 +14,7 @@
 	const fanOffset = 0.5;
 
 	function isAnimatingToHere(card: Card): boolean {
-		const a = game.animatingCard;
+		const a = animationHost.animatingCard;
 		if (!a) return false;
 		return (
 			a.to.kind === 'waste' && a.to.index === 0 && a.suit === card.suit && a.rank === card.rank

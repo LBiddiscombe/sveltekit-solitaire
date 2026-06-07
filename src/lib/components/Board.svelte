@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { game, generateDealPlan } from '$lib/state/game.svelte';
-	import { animController, type Rect } from '$lib/animations/controller';
-	import { animation } from '$lib/config/animation';
-	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
+	import { game } from '$lib/state/game.svelte';
+	import { animationHost } from '$lib/animations/host.svelte';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
@@ -29,125 +27,19 @@
 
 	onMount(() => {
 		game.newGame();
-		queueMicrotask(() => startDeal());
+		queueMicrotask(() => animationHost.startDeal());
 	});
 
-	function pileRect(kind: string, index: number): Rect | null {
-		const el = document.querySelector(`[data-pile-kind="${kind}"][data-pile-index="${index}"]`);
-		if (!el) return null;
-		const r = el.getBoundingClientRect();
-		return { x: r.left, y: r.top, width: r.width, height: r.height };
-	}
-
-	function pileCascade(kind: string, index: number): { faceup: number; facedown: number } {
-		const el = document.querySelector(`[data-pile-kind="${kind}"][data-pile-index="${index}"]`);
-		if (!el) return { faceup: 0, facedown: 0 };
-		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
-		return {
-			faceup: parseFloat(el.getAttribute('data-pile-cascade') || '0.15') * ch,
-			facedown: parseFloat(el.getAttribute('data-pile-facedown-cascade') || '0.08') * ch
-		};
-	}
-
-	async function startDeal() {
-		game.busy = true;
-		const stockEl = document.querySelector('[data-pile-kind="stock"]');
-		const stockRect = stockEl
-			? stockEl.getBoundingClientRect()
-			: { x: 0, y: 0, width: 0, height: 0 };
-		const src = {
-			x: stockRect.x,
-			y: stockRect.y,
-			width: stockRect.width,
-			height: stockRect.height
-		};
-
-		const plan = generateDealPlan();
-		const colCounts = [0, 0, 0, 0, 0, 0, 0];
-
-		for (let i = 0; i < plan.length; i++) {
-			await new Promise((r) => setTimeout(r, animation.deal.staggerMs));
-
-			const { column, faceUp } = plan[i];
-			const dst = pileRect('tableau', column);
-			if (!dst) continue;
-			const { facedown: facedownPx } = pileCascade('tableau', column);
-
-			const targetY = dst.y + colCounts[column] * facedownPx;
-			const target = { x: dst.x, y: targetY, width: dst.width, height: dst.height };
-
-			const card = game.stock[0];
-			if (faceUp) {
-				await animController.animateFlip(src, target, cardImageUrl(card), {
-					durationMs: animation.deal.flightMs,
-					easing: animation.deal.easing
-				});
-			} else {
-				await animController.animateStatic(
-					src,
-					target,
-					cardBackUrl(),
-					animation.deal.flightMs,
-					animation.deal.easing
-				);
-			}
-			game.dealCardToTableau(column, faceUp);
-			colCounts[column]++;
-		}
-		game.busy = false;
-	}
-
 	async function startSolve() {
-		if (game.busy) return;
+		if (animationHost.busy) return;
 		solving = true;
-
-		while (!game.isWon) {
-			const move = game.peekSolveMove();
-			if (!move) break;
-
-			const { column, foundationIndex } = move;
-			const card = game.tableau[column][game.tableau[column].length - 1];
-
-			const src = pileRect('tableau', column);
-			if (!src) break;
-			const { faceup: cascadePx, facedown: facedownPx } = pileCascade('tableau', column);
-			const colCount = game.tableau[column].length;
-			const prev = colCount > 1 ? game.tableau[column][colCount - 2] : null;
-			const cascade = prev && !prev.faceUp ? facedownPx : cascadePx;
-			const srcY = src.y + (colCount - 1) * cascade;
-			const srcRect = { x: src.x, y: srcY, width: src.width, height: src.height };
-
-			const dst = pileRect('foundation', foundationIndex);
-			if (!dst) break;
-			const dstRect = { x: dst.x, y: dst.y, width: dst.width, height: dst.height };
-
-			game.animatingCard = {
-				from: { kind: 'tableau', index: column },
-				to: { kind: 'foundation', index: foundationIndex },
-				suit: card.suit,
-				rank: card.rank
-			};
-			game.solveTickAt(column, foundationIndex);
-
-			await animController.animateStatic(
-				srcRect,
-				dstRect,
-				cardImageUrl(card),
-				animation.solve.flightMs,
-				animation.solve.easing
-			);
-			game.animatingCard = null;
-
-			if (game.isWon) break;
-			await new Promise((r) => setTimeout(r, animation.solve.pauseMs));
-		}
-
+		await animationHost.startSolve();
 		solving = false;
 	}
 
 	$effect(() => {
 		return () => {
-			animController.dispose();
+			animationHost.dispose();
 		};
 	});
 </script>
@@ -224,9 +116,9 @@
 		<button
 			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white"
 			onclick={() => {
-				animController.dispose();
+				animationHost.dispose();
 				game.newGame();
-				queueMicrotask(() => startDeal());
+				queueMicrotask(() => animationHost.startDeal());
 			}}
 		>
 			New

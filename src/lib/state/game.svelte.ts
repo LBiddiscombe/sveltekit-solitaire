@@ -1,4 +1,4 @@
-import type { Card, PileRef, Rank, Suit } from '$lib/game/types';
+import type { Card, PileRef } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
 import {
 	canPlaceOnTableau,
@@ -13,13 +13,6 @@ interface Snapshot {
 	waste: Card[];
 	tableau: Card[][];
 	foundations: Card[][];
-}
-
-export interface AnimatingCard {
-	from: PileRef;
-	to: PileRef;
-	suit: Suit;
-	rank: Rank;
 }
 
 function deepCloneCards(cards: Card[]): Card[] {
@@ -57,9 +50,6 @@ class Game {
 		to: PileRef;
 	} | null>(null);
 
-	busy = $state(false);
-	animatingCard = $state<AnimatingCard | null>(null);
-
 	seed = $state<number | undefined>(undefined);
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
@@ -85,8 +75,6 @@ class Game {
 		this.redoStack = [];
 		this.dragging = null;
 		this.lastAutoMove = null;
-		this.busy = false;
-		this.animatingCard = null;
 	}
 
 	skipDeal() {
@@ -133,7 +121,7 @@ class Game {
 	}
 
 	startDrag(ref: PileRef, cardIndex: number) {
-		if (this.dragging || this.busy) return;
+		if (this.dragging) return;
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return;
 
@@ -353,7 +341,7 @@ class Game {
 	}
 
 	undo() {
-		if (this.undoStack.length === 0 || this.busy) return;
+		if (this.undoStack.length === 0) return;
 		this.redoStack.push(this.snapshot());
 		const snap = this.undoStack.pop()!;
 		this.stock = snap.stock;
@@ -364,7 +352,7 @@ class Game {
 	}
 
 	redo() {
-		if (this.redoStack.length === 0 || this.busy) return;
+		if (this.redoStack.length === 0) return;
 		this.undoStack.push(this.snapshot());
 		const snap = this.redoStack.pop()!;
 		this.stock = snap.stock;

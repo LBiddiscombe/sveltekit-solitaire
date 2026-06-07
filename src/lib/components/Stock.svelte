@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Card } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
+	import { animationHost } from '$lib/animations/host.svelte';
 	import { cardBackUrl } from '$lib/game/card-images';
 
 	let { cards }: { cards: Card[] } = $props();
@@ -8,7 +9,7 @@
 	const isEmpty = $derived(cards.length === 0 && game.waste.length === 0);
 
 	function handleClick() {
-		if (game.busy) return;
+		if (animationHost.busy) return;
 		game.drawFromStock();
 	}
 </script>
