@@ -48,8 +48,7 @@
 
 <svelte:window onresize={() => updateCardSize()} />
 
-<div bind:this={boardEl} 	class="mx-auto flex max-w-4xl flex-col gap-4 p-2"
-	class:invisible={!ready}>
+<div bind:this={boardEl} class="mx-auto flex max-w-4xl flex-col gap-4 p-2" class:invisible={!ready}>
 	<div class="flex items-start justify-between">
 		<div class="flex gap-1">
 			{#each game.foundations as foundation, i (i)}
@@ -94,16 +93,39 @@
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
 					onclick={() => {
-				animationHost.dispose();
-				game.newGame();
-				queueMicrotask(() => animationHost.startDeal());
-			}}
+						animationHost.dispose();
+						game.newGame();
+						queueMicrotask(() => animationHost.startDeal());
+					}}
 				>
 					New Game
 				</button>
 			</div>
 		</div>
 	{/if}
+
+	<div class="fixed bottom-4 left-4">
+		<button
+			class="rounded-full bg-amber-500 px-4 py-2 text-sm text-white hover:bg-amber-600 disabled:opacity-30"
+			disabled={solving}
+			onclick={async () => {
+				if (animationHost.busy) return;
+				const hint = game.findBestHint();
+				if (!hint) return;
+				game.hint = hint;
+				if (hint.from.kind === 'stock') {
+					setTimeout(() => {
+						if (game.hint === hint) game.clearHint();
+					}, 1200);
+				} else {
+					await animationHost.showHint(hint);
+					if (game.hint === hint) game.clearHint();
+				}
+			}}
+		>
+			Hint
+		</button>
+	</div>
 
 	<div class="fixed right-4 bottom-4 flex gap-2">
 		<button

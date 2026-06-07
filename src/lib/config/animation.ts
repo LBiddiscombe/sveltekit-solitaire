@@ -25,5 +25,9 @@ export const animation = {
 	dragFlyBack: {
 		flightMs: 100,
 		easing: 'ease-out'
+	},
+	hint: {
+		flightMs: 400,
+		easing: 'ease-out'
 	}
 };

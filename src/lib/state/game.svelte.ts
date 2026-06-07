@@ -52,6 +52,8 @@ class Game {
 
 	seed = $state<number | undefined>(undefined);
 
+	hint = $state<Hint | null>(null);
+
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
 	canSolve = $derived(
@@ -75,15 +77,18 @@ class Game {
 		this.redoStack = [];
 		this.dragging = null;
 		this.lastAutoMove = null;
+		this.hint = null;
 	}
 
 	skipDeal() {
+		this.clearHint();
 		const dealt = deal(this.stock);
 		this.stock = dealt.stock;
 		this.tableau = dealt.tableau;
 	}
 
 	dealCardToTableau(column: number, faceUp: boolean) {
+		this.clearHint();
 		const card = this.stock.shift();
 		if (!card) return;
 		card.faceUp = faceUp;
@@ -91,6 +96,7 @@ class Game {
 	}
 
 	drawFromStock() {
+		this.clearHint();
 		if (this.stock.length === 0) {
 			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
 			this.waste = [];
@@ -111,6 +117,7 @@ class Game {
 		if (!card) return;
 		card.faceUp = true;
 		this.waste.push(card);
+		this.clearHint();
 	}
 
 	recycleOneToStock() {
@@ -118,10 +125,12 @@ class Game {
 		if (!card) return;
 		card.faceUp = false;
 		this.stock.unshift(card);
+		this.clearHint();
 	}
 
 	startDrag(ref: PileRef, cardIndex: number) {
 		if (this.dragging) return;
+		this.clearHint();
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return;
 
@@ -144,6 +153,7 @@ class Game {
 
 	cancelDrag() {
 		this.dragging = null;
+		this.clearHint();
 	}
 
 	endDrag(to: PileRef): boolean {
@@ -168,6 +178,7 @@ class Game {
 
 		if (!valid) return false;
 
+		this.clearHint();
 		this.saveSnapshot();
 
 		const movedCards = sourcePile.splice(cardIndex, count);
@@ -205,6 +216,7 @@ class Game {
 	}
 
 	beginMove() {
+		this.clearHint();
 		this.saveSnapshot();
 	}
 
@@ -226,6 +238,7 @@ class Game {
 	}
 
 	autoMove(ref: PileRef, cardIndex: number): boolean {
+		this.clearHint();
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return false;
 		const card = pile[cardIndex];
@@ -313,6 +326,7 @@ class Game {
 	}
 
 	solveTickAt(column: number, foundationIndex: number): boolean {
+		this.clearHint();
 		const col = this.tableau[column];
 		if (col.length === 0) return false;
 		const card = col[col.length - 1];
@@ -340,7 +354,12 @@ class Game {
 		this.lastAutoMove = null;
 	}
 
+	clearHint() {
+		this.hint = null;
+	}
+
 	undo() {
+		this.clearHint();
 		if (this.undoStack.length === 0) return;
 		this.redoStack.push(this.snapshot());
 		const snap = this.undoStack.pop()!;
@@ -352,6 +371,7 @@ class Game {
 	}
 
 	redo() {
+		this.clearHint();
 		if (this.redoStack.length === 0) return;
 		this.undoStack.push(this.snapshot());
 		const snap = this.redoStack.pop()!;
@@ -391,6 +411,91 @@ class Game {
 			this.undoStack.shift();
 		}
 	}
+
+	findBestHint(): Hint | null {
+		return findBestHint(this);
+	}
+}
+
+export interface Hint {
+	from: PileRef;
+	fromCardIndex: number;
+	to: PileRef;
+	card: Card;
+}
+
+function findBestHint(game: Game): Hint | null {
+	for (let i = 0; i < 7; i++) {
+		const col = game.tableau[i];
+		if (col.length === 0) continue;
+		const card = col[col.length - 1];
+		if (!card.faceUp) continue;
+		const fi = findMovesToFoundation(card, game.foundations);
+		if (fi !== null) {
+			return {
+				from: { kind: 'tableau', index: i },
+				fromCardIndex: col.length - 1,
+				to: { kind: 'foundation', index: fi },
+				card
+			};
+		}
+	}
+
+	if (game.waste.length > 0) {
+		const card = game.waste[game.waste.length - 1];
+		const fi = findMovesToFoundation(card, game.foundations);
+		if (fi !== null) {
+			return {
+				from: { kind: 'waste', index: 0 },
+				fromCardIndex: game.waste.length - 1,
+				to: { kind: 'foundation', index: fi },
+				card
+			};
+		}
+	}
+
+	if (game.waste.length > 0) {
+		const card = game.waste[game.waste.length - 1];
+		const ti = findMovesToTableau(card, game.tableau);
+		if (ti !== null) {
+			return {
+				from: { kind: 'waste', index: 0 },
+				fromCardIndex: game.waste.length - 1,
+				to: { kind: 'tableau', index: ti },
+				card
+			};
+		}
+	}
+
+	for (let i = 0; i < 7; i++) {
+		const col = game.tableau[i];
+		for (let j = 0; j < col.length; j++) {
+			const card = col[j];
+			if (!card.faceUp) continue;
+			const cardsBelow = col.slice(j + 1);
+			if (!canMoveFromTableau(card, cardsBelow)) continue;
+			const ti = findMovesToTableau(card, game.tableau);
+			if (ti !== null && ti !== i) {
+				return {
+					from: { kind: 'tableau', index: i },
+					fromCardIndex: j,
+					to: { kind: 'tableau', index: ti },
+					card
+				};
+			}
+		}
+	}
+
+	if (game.stock.length > 0 || game.waste.length > 0) {
+		return {
+			from: { kind: 'stock', index: 0 },
+			fromCardIndex: 0,
+			to: { kind: 'waste', index: 0 },
+			card: game.stock.length > 0 ? game.stock[0] : game.waste[0]
+		};
+	}
+
+	return null;
 }
 
 export const game = new Game();

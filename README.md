@@ -28,12 +28,12 @@ Open [http://localhost:5173](http://localhost:5173). Click **New** to start a fr
 
 ## How to play Klondike
 
-| Area | Description |
-|------|-------------|
-| **Stock** (top-right) | Face-down pile; click to draw 3 cards to the Waste |
-| **Waste** (top-right) | Face-up pile; top card is playable |
-| **Tableau** (7 columns) | Build descending (K→A), alternating colors. Only Kings go in empty columns |
-| **Foundations** (top-left) | Build ascending (A→K) by suit to win |
+| Area                       | Description                                                                |
+| -------------------------- | -------------------------------------------------------------------------- |
+| **Stock** (top-right)      | Face-down pile; click to draw 3 cards to the Waste                         |
+| **Waste** (top-right)      | Face-up pile; top card is playable                                         |
+| **Tableau** (7 columns)    | Build descending (K→A), alternating colors. Only Kings go in empty columns |
+| **Foundations** (top-left) | Build ascending (A→K) by suit to win                                       |
 
 ## Project structure
 
@@ -70,17 +70,17 @@ src/
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
-| `npm run check` | Type-check (`svelte-check`) |
-| `npm run lint` | Prettier + ESLint |
-| `npm run format` | Prettier auto-format |
-| `npm run test:unit` | Vitest (unit + component) |
-| `npm run test:e2e` | Playwright E2E tests |
-| `npm test` | Unit (single run) + E2E |
+| Command             | Description                 |
+| ------------------- | --------------------------- |
+| `npm run dev`       | Start Vite dev server       |
+| `npm run build`     | Production build            |
+| `npm run preview`   | Preview production build    |
+| `npm run check`     | Type-check (`svelte-check`) |
+| `npm run lint`      | Prettier + ESLint           |
+| `npm run format`    | Prettier auto-format        |
+| `npm run test:unit` | Vitest (unit + component)   |
+| `npm run test:e2e`  | Playwright E2E tests        |
+| `npm test`          | Unit (single run) + E2E     |
 
 ## Tech stack
 

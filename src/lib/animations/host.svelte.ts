@@ -1,4 +1,4 @@
-import { game, generateDealPlan } from '$lib/state/game.svelte';
+import { game, generateDealPlan, type Hint } from '$lib/state/game.svelte';
 import { animation } from '$lib/config/animation';
 import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 import type { PileRef, Suit, Rank } from '$lib/game/types';
@@ -374,6 +374,64 @@ export class AnimationHost {
 		);
 		if (!el) return 0.15;
 		return parseFloat(el.getAttribute('data-pile-cascade') ?? '0.15');
+	}
+
+	cardRectInPile(ref: PileRef, cardIndex: number): Rect | null {
+		const pileRect = this.pileRect(ref);
+		if (!pileRect) return null;
+		const pile = game.getPile(ref);
+		if (cardIndex < 0 || cardIndex >= pile.length) return null;
+
+		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+		const cascadeFrac = this.pileCascade(ref);
+
+		let yOffset = 0;
+		for (let j = 0; j < cardIndex; j++) {
+			yOffset += pile[j].faceUp ? cascadeFrac * ch : 0.08 * ch;
+		}
+
+		return {
+			x: pileRect.x,
+			y: pileRect.y + yOffset,
+			width: pileRect.width,
+			height: pileRect.height
+		};
+	}
+
+	async showHint(hint: Hint): Promise<void> {
+		const srcRect = this.cardRectInPile(hint.from, hint.fromCardIndex);
+		if (!srcRect) return;
+
+		const dstRect = this.pileRect(hint.to);
+		if (!dstRect) return;
+
+		const dstPile = game.getPile(hint.to);
+		const dstCount = dstPile?.length ?? 0;
+		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+		const cascadeFrac = this.pileCascade(hint.to);
+		const targetRect = this.cardTargetRect(dstRect, hint.to, dstCount, ch, cascadeFrac);
+
+		return new Promise((resolve) => {
+			const w = this.buildStaticWrapper(cardImageUrl(hint.card));
+			w.style.opacity = '0.75';
+			w.style.transition = 'none';
+			this.setPos(w, srcRect);
+			document.body.appendChild(w);
+			this.clones.push(w);
+
+			requestAnimationFrame(() => {
+				w.style.transition = `left ${animation.hint.flightMs}ms ${animation.hint.easing}, top ${animation.hint.flightMs}ms ${animation.hint.easing}`;
+				this.setPos(w, targetRect);
+
+				const onEnd = () => {
+					w.removeEventListener('transitionend', onEnd);
+					this.cleanup(w);
+					resolve();
+				};
+				w.addEventListener('transitionend', onEnd);
+				this.fallbackTimer(w, animation.hint.flightMs, resolve, onEnd);
+			});
+		});
 	}
 
 	private cardTargetRect(

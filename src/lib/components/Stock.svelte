@@ -7,6 +7,7 @@
 	let { cards }: { cards: Card[] } = $props();
 
 	const isEmpty = $derived(cards.length === 0 && game.waste.length === 0);
+	const isHinted = $derived(game.hint !== null && game.hint.from.kind === 'stock');
 
 	function handleClick() {
 		if (animationHost.busy) return;
@@ -16,6 +17,7 @@
 
 <button
 	class="flex items-center justify-center"
+	class:animate-pulse={isHinted}
 	style:width="var(--card-width)"
 	onclick={handleClick}
 	data-pile-kind="stock"
