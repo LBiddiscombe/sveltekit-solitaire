@@ -1,42 +1,121 @@
-# sv
+# sveltekit-solitaire
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+A Klondike Solitaire card game built with [SvelteKit 5](https://svelte.dev/docs/kit) (runes mode), TypeScript, and Tailwind CSS. Features animated card dealing, drag-and-drop, auto-move, undo/redo, and a one-click solve mode.
 
-## Creating a project
+![Screenshot](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript)
+![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Features
 
-```sh
-# create a new project
-npx sv create my-app
-```
+- **Standard Klondike rules** — draw 3 from stock, build tableau descending with alternating colors, foundations ascending by suit
+- **Deal animation** — cards fly from the stock to the tableau with a flip effect for face-up cards
+- **Drag-and-drop** — click and drag cards between tableau columns, waste, and foundations; invalid drops animate back
+- **Auto-move** — click a card to auto-send it to a valid foundation or tableau position
+- **Solve mode** — automatically completes the game by finding valid foundation moves
+- **Undo / Redo** — up to 100 moves of history
+- **Reproducible seeds** — pass a seed for deterministic shuffles (useful for debugging)
+- **Animated card flips** — CSS 3D transforms for face-up/face-down transitions
+- **Responsive layout** — card sizing adapts to window width
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.15.4 create --template minimal --types ts --add prettier eslint vitest="usages:unit,component" playwright tailwindcss="plugins:none" mcp="ide:opencode" --install npm sveltekit-solitaire
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Play
 
 ```sh
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+Open [http://localhost:5173](http://localhost:5173). Click **New** to start a fresh game.
 
-To create a production version of your app:
+## How to play Klondike
+
+| Area | Description |
+|------|-------------|
+| **Stock** (top-right) | Face-down pile; click to draw 3 cards to the Waste |
+| **Waste** (top-right) | Face-up pile; top card is playable |
+| **Tableau** (7 columns) | Build descending (K→A), alternating colors. Only Kings go in empty columns |
+| **Foundations** (top-left) | Build ascending (A→K) by suit to win |
+
+## Project structure
+
+```
+src/
+├── lib/
+│   ├── actions/
+│   │   └── dragdrop.ts          # Pointer-based drag-and-drop controller
+│   ├── animations/
+│   │   └── host.svelte.ts       # Animation orchestrator (deal, solve, flyback)
+│   ├── assets/
+│   │   └── cards/               # SVG card images (52 faces + 2 backs)
+│   ├── components/
+│   │   ├── Board.svelte         # Main game layout & controls
+│   │   ├── Pile.svelte          # Generic card pile (tableau / foundation)
+│   │   ├── Stock.svelte         # Click-to-draw stock pile
+│   │   └── Waste.svelte         # Face-up drawn cards
+│   ├── config/
+│   │   └── animation.ts         # Timing / easing constants
+│   ├── game/
+│   │   ├── card.ts              # Suit color & rank helpers
+│   │   ├── card-images.ts       # Vite glob → URL mapping
+│   │   ├── deal.ts              # Deck creation, shuffle, deal logic
+│   │   ├── rules.ts             # Movement validation rules
+│   │   └── types.ts             # Card, Suit, Rank, PileKind types
+│   └── state/
+│       └── game.svelte.ts       # Reactive game state (runes-based store)
+├── routes/
+│   ├── +layout.svelte           # Root layout
+│   ├── +page.svelte             # Home page (renders <Board />)
+│   └── layout.css               # Tailwind CSS entrypoint
+└── app.html                     # SvelteKit app shell
+```
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run check` | Type-check (`svelte-check`) |
+| `npm run lint` | Prettier + ESLint |
+| `npm run format` | Prettier auto-format |
+| `npm run test:unit` | Vitest (unit + component) |
+| `npm run test:e2e` | Playwright E2E tests |
+| `npm test` | Unit (single run) + E2E |
+
+## Tech stack
+
+- **SvelteKit 5** — runes (`$state`, `$derived`, `$effect`), no stores
+- **TypeScript** — strict mode
+- **Tailwind CSS 4** — via `@tailwindcss/vite`
+- **SVG card faces** — based on the public-domain [SVG-cards](https://github.com/htdebeer/SVG-cards) set; we've modified the asset loading and card-back design, so any quirks are our own, not the original author's
+- **Vitest** — unit tests + browser component tests
+- **Playwright** — E2E tests
+- **Prettier + ESLint** — linting and formatting
+
+## Development
 
 ```sh
-npm run build
+git clone <repo-url>
+cd sveltekit-solitaire
+npm install
+npm run dev
 ```
 
-You can preview the production build with `npm run preview`.
+After changing routes or page structure, run `npx svelte-kit sync` to regenerate TypeScript types.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Testing
+
+```sh
+# Unit + component tests (watch mode)
+npm run test:unit
+
+# All tests (single run)
+npm test
+
+# E2E tests
+npm run test:e2e
+```
+
+## License
+
+MIT

@@ -8,6 +8,7 @@
 
 	let boardEl: HTMLDivElement;
 	let solving = $state(false);
+	let ready = $state(false);
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -17,6 +18,7 @@
 		const cardH = Math.round((cardW * 336) / 240);
 		document.documentElement.style.setProperty('--card-width', `${cardW}px`);
 		document.documentElement.style.setProperty('--card-height', `${cardH}px`);
+		ready = true;
 	}
 
 	$effect(() => {
@@ -46,7 +48,8 @@
 
 <svelte:window onresize={() => updateCardSize()} />
 
-<div bind:this={boardEl} class="mx-auto flex max-w-4xl flex-col gap-4 p-2">
+<div bind:this={boardEl} 	class="mx-auto flex max-w-4xl flex-col gap-4 p-2"
+	class:invisible={!ready}>
 	<div class="flex items-start justify-between">
 		<div class="flex gap-1">
 			{#each game.foundations as foundation, i (i)}
@@ -90,7 +93,11 @@
 				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-					onclick={() => game.newGame()}
+					onclick={() => {
+				animationHost.dispose();
+				game.newGame();
+				queueMicrotask(() => animationHost.startDeal());
+			}}
 				>
 					New Game
 				</button>
