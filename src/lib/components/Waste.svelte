@@ -10,7 +10,7 @@
 
 	const topIndex = $derived(cards.length - 1);
 	const fanStart = $derived(Math.max(0, cards.length - 3));
-	const fanOffset = 15;
+	const fanOffset = 0.5;
 
 	function isAnimatingToHere(card: Card): boolean {
 		const a = game.animatingCard;
@@ -24,14 +24,14 @@
 <div class="flex flex-col items-center">
 	<div
 		class="relative"
-		style:width={`calc(var(--card-width) + ${Math.max(0, Math.min(3, cards.length) - 1)} * ${fanOffset}px)`}
+		style:width={`calc(var(--card-width) * (1 + ${Math.max(0, Math.min(3, cards.length) - 1)} * ${fanOffset}))`}
 		style:height="var(--card-height)"
 		use:dragController.dropZone={ref}
 	>
 		{#each cards as card, i (`${card.suit}:${card.rank}`)}
 			<div
 				class="absolute"
-				style:left={`${i >= fanStart ? (i - fanStart) * fanOffset : 0}px`}
+				style:left={`calc(var(--card-width) * ${i >= fanStart ? (i - fanStart) * fanOffset : 0})`}
 				style:z-index={i + 1}
 				style:opacity={isAnimatingToHere(card)
 					? '0'
