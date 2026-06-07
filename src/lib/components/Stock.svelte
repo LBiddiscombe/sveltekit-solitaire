@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Card } from '$lib/game/deck';
 	import { game } from '$lib/state/game.svelte';
+	import { cardBackUrl } from '$lib/game/card-images';
 
 	let { cards }: { cards: Card[] } = $props();
 
@@ -13,13 +14,23 @@
 	onclick={() => game.drawFromStock()}
 >
 	{#if isEmpty}
-		<div class="h-20 w-full rounded-lg border-2 border-dashed border-gray-400"></div>
+		<div
+			class="box-border w-full rounded-lg border-2 border-dashed border-gray-400"
+			style:height="var(--card-height)"
+		></div>
 	{:else if cards.length === 0}
 		<div
-			class="h-20 w-full rounded-lg border-2 border-dashed border-gray-300"
+			class="box-border w-full rounded-lg border-2 border-dashed border-gray-300"
+			style:height="var(--card-height)"
 			title="Click to recycle waste"
 		></div>
 	{:else}
-		<div class="pcard-back"></div>
+		<img
+			src={cardBackUrl()}
+			alt=""
+			class="card-image"
+			style:width="var(--card-width)"
+			style:height="var(--card-height)"
+		/>
 	{/if}
 </button>

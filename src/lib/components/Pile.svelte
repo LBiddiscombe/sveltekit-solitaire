@@ -1,16 +1,16 @@
 <script lang="ts">
 	import type { Card, PileKind } from '$lib/game/deck';
-	import { cssClass } from '$lib/game/deck';
 	import { game } from '$lib/state/game.svelte';
 	import { draggable, dropZone } from '$lib/actions/dragdrop';
+	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 
 	let {
 		cards,
 		kind,
 		index,
 		emptyLabel = '',
-		cascade = 30,
-		facedownCascade = 15
+		cascade = 20,
+		facedownCascade = 10
 	}: {
 		cards: Card[];
 		kind: PileKind;
@@ -38,18 +38,14 @@
 		const c = prev.faceUp ? cascade : facedownCascade;
 		return `calc(${c}px - var(--card-height))`;
 	}
-
-	function handleDblClick(cardIndex: number) {
-		if (cardIndex !== cards.length - 1) return;
-		game.autoMove(ref, cardIndex);
-	}
 </script>
 
 <div class="flex flex-col items-center" use:dropZone={ref}>
 	{#if cards.length === 0}
 		<div
-			class="h-10 rounded-lg border-2 border-dashed border-gray-400"
+			class="box-border rounded-lg border-2 border-dashed border-gray-400"
 			style:width="var(--card-width)"
+			style:height="var(--card-height)"
 		>
 			{emptyLabel}
 		</div>
@@ -66,10 +62,14 @@
 				data-card-index={i}
 				role="button"
 				tabindex={i === cards.length - 1 ? 0 : -1}
-				ondblclick={() => handleDblClick(i)}
-				onkeydown={(e) => e.key === 'Enter' && handleDblClick(i)}
 			>
-				<div class={card.faceUp ? cssClass(card) : 'pcard-back'}></div>
+				<img
+					src={card.faceUp ? cardImageUrl(card) : cardBackUrl()}
+					alt=""
+					class="card-image"
+					style:width="var(--card-width)"
+					style:height="var(--card-height)"
+				/>
 			</div>
 		{/each}
 	{/if}

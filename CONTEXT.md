@@ -49,3 +49,5 @@ Snapshot-based undo. The full game state is deep-cloned before each move. Undo r
 Card size (`--card-width`, `--card-height`) is computed responsively from viewport width and the 223:324 card aspect ratio. The board uses a centered flex/grid layout with a capped max-width for desktop.
 
 Board layout uses Tailwind utility classes. Custom CSS is limited to card-sizing variables and playing-card visuals.
+
+**Top row** (left to right): foundations, waste, stock — chosen for right-handed mobile reach (top-right thumb zone). Stock and waste share a visual group; foundations sit left of the `justify-between` split.

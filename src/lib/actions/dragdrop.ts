@@ -19,7 +19,12 @@ export function draggable(node: HTMLElement, ref: PileRef) {
 		e.stopPropagation();
 
 		const rect = cardEl.getBoundingClientRect();
+		const startX = e.clientX;
+		const startY = e.clientY;
+		let hasMoved = false;
+
 		clone = cardEl.cloneNode(true) as HTMLElement;
+		clone.style.margin = '0';
 		clone.style.position = 'fixed';
 		clone.style.pointerEvents = 'none';
 		clone.style.zIndex = '1000';
@@ -33,17 +38,27 @@ export function draggable(node: HTMLElement, ref: PileRef) {
 
 		function onPointerMove(e: PointerEvent) {
 			if (!clone) return;
+			const dx = e.clientX - startX;
+			const dy = e.clientY - startY;
+			if (dx * dx + dy * dy > 25) {
+				hasMoved = true;
+			}
 			clone.style.left = `${e.clientX - rect.width / 2}px`;
 			clone.style.top = `${e.clientY - rect.height / 2}px`;
 		}
 
 		function onPointerUp(e: PointerEvent) {
 			cleanup();
-			const target = findDropTarget(e.clientX, e.clientY);
-			if (target) {
-				game.endDrag(target);
-			} else {
+			if (!hasMoved) {
 				game.cancelDrag();
+				game.autoMove(ref, cardIndex);
+			} else {
+				const target = findDropTarget(e.clientX, e.clientY);
+				if (target) {
+					game.endDrag(target);
+				} else {
+					game.cancelDrag();
+				}
 			}
 		}
 

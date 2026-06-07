@@ -21,6 +21,7 @@ class Game {
 	foundations = $state<Card[][]>([[], [], [], []]);
 
 	undoStack = $state<Snapshot[]>([]);
+	redoStack = $state<Snapshot[]>([]);
 
 	dragging = $state<{
 		from: PileRef;
@@ -37,6 +38,7 @@ class Game {
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
 	canUndo = $derived(this.undoStack.length > 0);
+	canRedo = $derived(this.redoStack.length > 0);
 
 	newGame() {
 		const deck = shuffle(createDeck());
@@ -46,6 +48,7 @@ class Game {
 		this.tableau = dealt.tableau;
 		this.foundations = [[], [], [], []];
 		this.undoStack = [];
+		this.redoStack = [];
 		this.dragging = null;
 		this.lastAutoMove = null;
 	}
@@ -167,7 +170,19 @@ class Game {
 
 	undo() {
 		if (this.undoStack.length === 0) return;
+		this.redoStack.push(this.snapshot());
 		const snap = this.undoStack.pop()!;
+		this.stock = snap.stock;
+		this.waste = snap.waste;
+		this.tableau = snap.tableau;
+		this.foundations = snap.foundations;
+		this.dragging = null;
+	}
+
+	redo() {
+		if (this.redoStack.length === 0) return;
+		this.undoStack.push(this.snapshot());
+		const snap = this.redoStack.pop()!;
 		this.stock = snap.stock;
 		this.waste = snap.waste;
 		this.tableau = snap.tableau;
@@ -188,13 +203,18 @@ class Game {
 		}
 	}
 
-	private saveSnapshot() {
-		this.undoStack.push({
+	private snapshot(): Snapshot {
+		return {
 			stock: this.stock.map((c) => ({ ...c })),
 			waste: this.waste.map((c) => ({ ...c })),
 			tableau: this.tableau.map((p) => p.map((c) => ({ ...c }))),
 			foundations: this.foundations.map((p) => p.map((c) => ({ ...c })))
-		});
+		};
+	}
+
+	private saveSnapshot() {
+		this.redoStack = [];
+		this.undoStack.push(this.snapshot());
 		if (this.undoStack.length > 100) {
 			this.undoStack.shift();
 		}

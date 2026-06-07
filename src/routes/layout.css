@@ -1,15 +1,15 @@
 @import 'tailwindcss';
 
 :root {
-	--card-width: 223px;
-	--card-height: 324px;
+	--card-width: 240px;
+	--card-height: 336px;
 }
 
-body [class*=' pcard-'],
-body [class^='pcard-'],
-body .pcard-back {
-	width: var(--card-width) !important;
-	height: var(--card-height) !important;
+body {
+	background-color: #166534;
+}
+
+.card-image {
 	touch-action: none;
 	-webkit-user-select: none;
 	user-select: none;
