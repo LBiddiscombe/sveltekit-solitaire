@@ -6,12 +6,18 @@
 	let { cards }: { cards: Card[] } = $props();
 
 	const isEmpty = $derived(cards.length === 0 && game.waste.length === 0);
+
+	function handleClick() {
+		if (game.busy) return;
+		game.drawFromStock();
+	}
 </script>
 
 <button
 	class="flex items-center justify-center"
 	style:width="var(--card-width)"
-	onclick={() => game.drawFromStock()}
+	onclick={handleClick}
+	data-pile-kind="stock"
 >
 	{#if isEmpty}
 		<div

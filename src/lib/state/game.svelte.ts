@@ -1,4 +1,4 @@
-import type { Card, PileRef } from '$lib/game/types';
+import type { Card, PileRef, Rank, Suit } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
 import {
 	canPlaceOnTableau,
@@ -13,6 +13,27 @@ interface Snapshot {
 	waste: Card[];
 	tableau: Card[][];
 	foundations: Card[][];
+}
+
+export interface AnimatingCard {
+	from: PileRef;
+	to: PileRef;
+	suit: Suit;
+	rank: Rank;
+}
+
+function deepCloneCards(cards: Card[]): Card[] {
+	return cards.map((c) => ({ ...c }));
+}
+
+export function generateDealPlan(): Array<{ column: number; faceUp: boolean }> {
+	const plan: Array<{ column: number; faceUp: boolean }> = [];
+	for (let col = 0; col < 7; col++) {
+		for (let row = col; row < 7; row++) {
+			plan.push({ column: row, faceUp: row === col });
+		}
+	}
+	return plan;
 }
 
 class Game {
@@ -36,6 +57,11 @@ class Game {
 		to: PileRef;
 	} | null>(null);
 
+	busy = $state(false);
+	animatingCard = $state<AnimatingCard | null>(null);
+
+	seed = $state<number | undefined>(undefined);
+
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
 	canSolve = $derived(
@@ -50,15 +76,30 @@ class Game {
 	newGame(seed?: number) {
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);
-		const dealt = deal(deck);
-		this.stock = dealt.stock;
+		this.stock = deck;
+		this.seed = seed;
 		this.waste = [];
-		this.tableau = dealt.tableau;
+		this.tableau = [[], [], [], [], [], [], []];
 		this.foundations = [[], [], [], []];
 		this.undoStack = [];
 		this.redoStack = [];
 		this.dragging = null;
 		this.lastAutoMove = null;
+		this.busy = false;
+		this.animatingCard = null;
+	}
+
+	skipDeal() {
+		const dealt = deal(this.stock);
+		this.stock = dealt.stock;
+		this.tableau = dealt.tableau;
+	}
+
+	dealCardToTableau(column: number, faceUp: boolean) {
+		const card = this.stock.shift();
+		if (!card) return;
+		card.faceUp = faceUp;
+		this.tableau[column].push(card);
 	}
 
 	drawFromStock() {
@@ -77,8 +118,22 @@ class Game {
 		}
 	}
 
+	drawOneToWaste() {
+		const card = this.stock.pop();
+		if (!card) return;
+		card.faceUp = true;
+		this.waste.push(card);
+	}
+
+	recycleOneToStock() {
+		const card = this.waste.pop();
+		if (!card) return;
+		card.faceUp = false;
+		this.stock.unshift(card);
+	}
+
 	startDrag(ref: PileRef, cardIndex: number) {
-		if (this.dragging) return;
+		if (this.dragging || this.busy) return;
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return;
 
@@ -138,6 +193,48 @@ class Game {
 		}
 
 		return true;
+	}
+
+	findAutoMoveDestination(ref: PileRef, cardIndex: number): PileRef | null {
+		const pile = this.getPile(ref);
+		if (cardIndex < 0 || cardIndex >= pile.length) return null;
+		const card = pile[cardIndex];
+		if (!card.faceUp) return null;
+
+		if (cardIndex === pile.length - 1) {
+			const fi = findMovesToFoundation(card, this.foundations);
+			if (fi !== null) return { kind: 'foundation', index: fi };
+			const ti = findMovesToTableau(card, this.tableau);
+			if (ti !== null) return { kind: 'tableau', index: ti };
+			return null;
+		}
+
+		const cardsBelow = pile.slice(cardIndex + 1);
+		if (!canMoveFromTableau(card, cardsBelow)) return null;
+		const ti = findMovesToTableau(card, this.tableau);
+		if (ti !== null) return { kind: 'tableau', index: ti };
+		return null;
+	}
+
+	beginMove() {
+		this.saveSnapshot();
+	}
+
+	canAutoMove(ref: PileRef, cardIndex: number): boolean {
+		const pile = this.getPile(ref);
+		if (cardIndex < 0 || cardIndex >= pile.length) return false;
+		const card = pile[cardIndex];
+		if (!card.faceUp) return false;
+
+		if (cardIndex === pile.length - 1) {
+			if (findMovesToFoundation(card, this.foundations) !== null) return true;
+			if (findMovesToTableau(card, this.tableau) !== null) return true;
+			return false;
+		}
+
+		const cardsBelow = pile.slice(cardIndex + 1);
+		if (!canMoveFromTableau(card, cardsBelow)) return false;
+		return findMovesToTableau(card, this.tableau) !== null;
 	}
 
 	autoMove(ref: PileRef, cardIndex: number): boolean {
@@ -214,22 +311,41 @@ class Game {
 		return true;
 	}
 
-	solveTick(): boolean {
+	peekSolveMove(): { column: number; foundationIndex: number } | null {
 		for (let i = 0; i < 7; i++) {
 			const col = this.tableau[i];
 			if (col.length === 0) continue;
 			const card = col[col.length - 1];
-			const foundationIndex = findMovesToFoundation(card, this.foundations);
-			if (foundationIndex !== null) {
-				col.pop();
-				this.foundations[foundationIndex].push(card);
-				if (col.length > 0) {
-					col[col.length - 1].faceUp = true;
-				}
-				return true;
+			const fi = findMovesToFoundation(card, this.foundations);
+			if (fi !== null) {
+				return { column: i, foundationIndex: fi };
 			}
 		}
-		return false;
+		return null;
+	}
+
+	solveTickAt(column: number, foundationIndex: number): boolean {
+		const col = this.tableau[column];
+		if (col.length === 0) return false;
+		const card = col[col.length - 1];
+		if (findMovesToFoundation(card, this.foundations) !== foundationIndex) return false;
+		col.pop();
+		this.foundations[foundationIndex].push(card);
+		if (col.length > 0) {
+			col[col.length - 1].faceUp = true;
+		}
+		this.lastAutoMove = {
+			from: { kind: 'tableau', index: column },
+			card,
+			to: { kind: 'foundation', index: foundationIndex }
+		};
+		return true;
+	}
+
+	solveTick(): boolean {
+		const move = this.peekSolveMove();
+		if (!move) return false;
+		return this.solveTickAt(move.column, move.foundationIndex);
 	}
 
 	clearAutoMoveIndicator() {
@@ -237,7 +353,7 @@ class Game {
 	}
 
 	undo() {
-		if (this.undoStack.length === 0) return;
+		if (this.undoStack.length === 0 || this.busy) return;
 		this.redoStack.push(this.snapshot());
 		const snap = this.undoStack.pop()!;
 		this.stock = snap.stock;
@@ -248,7 +364,7 @@ class Game {
 	}
 
 	redo() {
-		if (this.redoStack.length === 0) return;
+		if (this.redoStack.length === 0 || this.busy) return;
 		this.undoStack.push(this.snapshot());
 		const snap = this.redoStack.pop()!;
 		this.stock = snap.stock;
@@ -258,7 +374,7 @@ class Game {
 		this.dragging = null;
 	}
 
-	private getPile(ref: PileRef): Card[] {
+	getPile(ref: PileRef): Card[] {
 		switch (ref.kind) {
 			case 'stock':
 				return this.stock;
@@ -273,10 +389,10 @@ class Game {
 
 	private snapshot(): Snapshot {
 		return {
-			stock: this.stock.map((c) => ({ ...c })),
-			waste: this.waste.map((c) => ({ ...c })),
-			tableau: this.tableau.map((p) => p.map((c) => ({ ...c }))),
-			foundations: this.foundations.map((p) => p.map((c) => ({ ...c })))
+			stock: deepCloneCards(this.stock),
+			waste: deepCloneCards(this.waste),
+			tableau: this.tableau.map((p) => deepCloneCards(p)),
+			foundations: this.foundations.map((p) => deepCloneCards(p))
 		};
 	}
 

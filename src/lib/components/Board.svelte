@@ -1,29 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { game } from '$lib/state/game.svelte';
+	import { game, generateDealPlan } from '$lib/state/game.svelte';
+	import { animController, type Rect } from '$lib/animations/controller';
+	import { animation } from '$lib/config/animation';
+	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
 
 	let boardEl: HTMLDivElement;
 	let solving = $state(false);
-
-	function startSolve() {
-		solving = true;
-		const interval = setInterval(() => {
-			const moved = game.solveTick();
-			if (!moved || game.isWon) {
-				clearInterval(interval);
-				solving = false;
-			}
-		}, 100);
-	}
-
-	$effect(() => {
-		return () => {
-			if (solving) solving = false;
-		};
-	});
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -43,6 +29,116 @@
 
 	onMount(() => {
 		game.newGame();
+		queueMicrotask(() => startDeal());
+	});
+
+	function pileRect(kind: string, index: number): Rect | null {
+		const el = document.querySelector(`[data-pile-kind="${kind}"][data-pile-index="${index}"]`);
+		if (!el) return null;
+		const r = el.getBoundingClientRect();
+		return { x: r.left, y: r.top, width: r.width, height: r.height };
+	}
+
+	async function startDeal() {
+		game.busy = true;
+		const stockEl = document.querySelector('[data-pile-kind="stock"]');
+		const stockRect = stockEl
+			? stockEl.getBoundingClientRect()
+			: { x: 0, y: 0, width: 0, height: 0 };
+		const src = {
+			x: stockRect.x,
+			y: stockRect.y,
+			width: stockRect.width,
+			height: stockRect.height
+		};
+
+		const plan = generateDealPlan();
+		const colCounts = [0, 0, 0, 0, 0, 0, 0];
+
+		for (let i = 0; i < plan.length; i++) {
+			await new Promise((r) => setTimeout(r, animation.deal.staggerMs));
+
+			const { column, faceUp } = plan[i];
+			const dst = pileRect('tableau', column);
+			if (!dst) continue;
+
+			const targetY = dst.y + colCounts[column] * 10;
+			const target = { x: dst.x, y: targetY, width: dst.width, height: dst.height };
+
+			const card = game.stock[0];
+			if (faceUp) {
+				await animController.animateFlip(src, target, cardImageUrl(card), {
+					durationMs: animation.deal.flightMs,
+					easing: animation.deal.easing
+				});
+			} else {
+				await animController.animateStatic(
+					src,
+					target,
+					cardBackUrl(),
+					animation.deal.flightMs,
+					animation.deal.easing
+				);
+			}
+			game.dealCardToTableau(column, faceUp);
+			colCounts[column]++;
+		}
+		game.busy = false;
+	}
+
+	async function startSolve() {
+		if (game.busy) return;
+		solving = true;
+
+		while (!game.isWon) {
+			const move = game.peekSolveMove();
+			if (!move) break;
+
+			const { column, foundationIndex } = move;
+			const card = game.tableau[column][game.tableau[column].length - 1];
+
+			const src = pileRect('tableau', column);
+			if (!src) break;
+			const colCount = game.tableau[column].length;
+			const srcY =
+				src.y +
+				(colCount - 1) * (colCount > 1 && !game.tableau[column][colCount - 2].faceUp ? 10 : 20);
+			const srcRect = { x: src.x, y: srcY, width: src.width, height: src.height };
+
+			const dst = pileRect('foundation', foundationIndex);
+			if (!dst) break;
+			const dstCount = game.foundations[foundationIndex].length;
+			const dstY = dst.y + (dstCount > 0 ? 20 : 0);
+			const dstRect = { x: dst.x, y: dstY, width: dst.width, height: dst.height };
+
+			game.animatingCard = {
+				from: { kind: 'tableau', index: column },
+				to: { kind: 'foundation', index: foundationIndex },
+				suit: card.suit,
+				rank: card.rank
+			};
+			game.solveTickAt(column, foundationIndex);
+
+			await animController.animateStatic(
+				srcRect,
+				dstRect,
+				cardImageUrl(card),
+				animation.solve.flightMs,
+				animation.solve.easing
+			);
+			game.animatingCard = null;
+
+			if (game.isWon) break;
+			await new Promise((r) => setTimeout(r, animation.solve.pauseMs));
+		}
+
+		solving = false;
+	}
+
+	$effect(() => {
+		return () => {
+			animController.dispose();
+		};
 	});
 </script>
 
@@ -117,7 +213,11 @@
 		</button>
 		<button
 			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white"
-			onclick={() => game.newGame()}
+			onclick={() => {
+				animController.dispose();
+				game.newGame();
+				queueMicrotask(() => startDeal());
+			}}
 		>
 			New
 		</button>

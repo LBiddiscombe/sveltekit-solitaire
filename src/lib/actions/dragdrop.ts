@@ -1,16 +1,23 @@
-import type { PileRef } from '$lib/game/types';
+import type { Card, PileRef, Suit, Rank } from '$lib/game/types';
 import { game } from '$lib/state/game.svelte';
+import { animController, type Rect } from '$lib/animations/controller';
+import { animation } from '$lib/config/animation';
 
 export interface DragGame {
 	startDrag(ref: PileRef, cardIndex: number): void;
 	endDrag(to: PileRef): boolean;
 	cancelDrag(): void;
 	autoMove(ref: PileRef, cardIndex: number): boolean;
+	findAutoMoveDestination(ref: PileRef, cardIndex: number): PileRef | null;
+	beginMove(): void;
 	dragging: { from: PileRef; cardIndex: number; count: number } | null;
+	busy: boolean;
+	animatingCard: { from: PileRef; to: PileRef; suit: Suit; rank: Rank } | null;
 }
 
 export class DragController {
 	private clone: HTMLElement | null = null;
+	private sourceRect: Rect | null = null;
 
 	constructor(private game: DragGame) {}
 
@@ -35,10 +42,25 @@ export class DragController {
 		return null;
 	}
 
+	private cardRect(cardEl: HTMLElement): Rect | null {
+		const r = cardEl.getBoundingClientRect();
+		return { x: r.left, y: r.top, width: r.width, height: r.height };
+	}
+
+	private pileRect(ref: PileRef): Rect | null {
+		const el = document.querySelector(
+			`[data-pile-kind="${ref.kind}"][data-pile-index="${ref.index}"]`
+		);
+		if (!el) return null;
+		const r = el.getBoundingClientRect();
+		return { x: r.left, y: r.top, width: r.width, height: r.height };
+	}
+
 	draggable = (node: HTMLElement, ref: PileRef) => {
 		const onPointerDown = (e: PointerEvent) => {
 			if (e.button !== 0) return;
 			if (this.game.dragging) return;
+			if (this.game.busy) return;
 
 			const cardEl = (e.target as HTMLElement).closest('[data-card-index]') as HTMLElement | null;
 			if (!cardEl) return;
@@ -67,6 +89,7 @@ export class DragController {
 						return;
 					}
 					hasMoved = true;
+					this.sourceRect = this.cardRect(cardEl);
 					this.clone = cardEl.cloneNode(true) as HTMLElement;
 					this.clone.style.margin = '0';
 					this.clone.style.position = 'fixed';
@@ -87,17 +110,38 @@ export class DragController {
 				}
 			};
 
-			const onPointerUp = (e: PointerEvent) => {
-				cleanup();
+			const onPointerUp = async (e: PointerEvent) => {
 				if (!hasMoved) {
-					this.game.autoMove(ref, cardIndex);
+					cleanup();
+					await this.animateAutoMove(ref, cardIndex, cardEl);
 				} else {
 					const target = this.findDropTarget(e.clientX, e.clientY);
 					if (target) {
-						this.game.endDrag(target);
+						const valid = this.game.endDrag(target);
+						if (!valid && this.clone && this.sourceRect) {
+							await animController.flyBack(
+								this.clone,
+								this.sourceRect,
+								animation.dragFlyBack.flightMs,
+								animation.dragFlyBack.easing
+							);
+							this.clone = null;
+							this.sourceRect = null;
+						}
 					} else {
+						if (this.clone && this.sourceRect) {
+							await animController.flyBack(
+								this.clone,
+								this.sourceRect,
+								animation.dragFlyBack.flightMs,
+								animation.dragFlyBack.easing
+							);
+							this.clone = null;
+							this.sourceRect = null;
+						}
 						this.game.cancelDrag();
 					}
+					cleanup();
 				}
 			};
 
@@ -116,6 +160,7 @@ export class DragController {
 					this.clone.remove();
 					this.clone = null;
 				}
+				this.sourceRect = null;
 				cardEl!.style.transition = '';
 				cardEl!.style.transform = '';
 				cardEl!.style.boxShadow = '';
@@ -136,6 +181,60 @@ export class DragController {
 		};
 	};
 
+	private async animateAutoMove(ref: PileRef, cardIndex: number, cardEl: HTMLElement) {
+		const dest = this.game.findAutoMoveDestination(ref, cardIndex);
+		if (!dest) return;
+
+		const srcRect = this.cardRect(cardEl);
+		if (!srcRect) return;
+
+		const dstRect = this.pileRect(dest);
+		if (!dstRect) return;
+
+		const imgEl = cardEl.querySelector('img');
+		const imgUrl = imgEl?.src ?? '';
+
+		const card = (this.game as unknown as { getPile(r: PileRef): Card[] }).getPile(ref)?.[
+			cardIndex
+		];
+		if (card) {
+			this.game.animatingCard = {
+				from: ref,
+				to: dest,
+				suit: card.suit,
+				rank: card.rank
+			};
+		}
+
+		const dstPile = (this.game as unknown as { getPile(r: PileRef): Card[] }).getPile(dest);
+		const dstCount = dstPile?.length ?? 0;
+
+		let yOffset = 0;
+		if (dest.kind === 'tableau' && dstPile) {
+			for (let j = 0; j < dstCount; j++) {
+				yOffset += dstPile[j].faceUp ? 20 : 10;
+			}
+		}
+		const targetRect = {
+			x: dstRect.x,
+			y: dstRect.y + yOffset,
+			width: dstRect.width,
+			height: dstRect.height
+		};
+
+		this.game.beginMove();
+		this.game.autoMove(ref, cardIndex);
+
+		await animController.animateStatic(
+			srcRect,
+			targetRect,
+			imgUrl,
+			animation.autoMove.flightMs,
+			animation.autoMove.easing
+		);
+		this.game.animatingCard = null;
+	}
+
 	dropZone = (node: HTMLElement, ref: PileRef) => {
 		node.dataset.pileKind = ref.kind;
 		node.dataset.pileIndex = String(ref.index);
@@ -153,4 +252,4 @@ export class DragController {
 	};
 }
 
-export const dragController = new DragController(game);
+export const dragController = new DragController(game as DragGame);

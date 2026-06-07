@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Card, PileKind } from '$lib/game/types';
+	import type { Card, PileKind, PileRef } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
 	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
@@ -20,7 +20,7 @@
 		facedownCascade?: number;
 	} = $props();
 
-	const ref = $derived({ kind, index });
+	const ref = $derived<PileRef>({ kind, index });
 
 	const isDraggingFromHere = $derived(
 		game.dragging !== null && game.dragging.from.kind === kind && game.dragging.from.index === index
@@ -30,6 +30,14 @@
 		if (!isDraggingFromHere) return false;
 		const d = game.dragging!;
 		return i >= d.cardIndex && i < d.cardIndex + d.count;
+	}
+
+	function isAnimatingToHere(card: Card): boolean {
+		const a = game.animatingCard;
+		if (!a) return false;
+		return (
+			a.to.kind === kind && a.to.index === index && a.suit === card.suit && a.rank === card.rank
+		);
 	}
 
 	function marginStyle(i: number): string {
@@ -56,8 +64,8 @@
 				style:width="var(--card-width)"
 				style:margin-top={marginStyle(i)}
 				style:z-index={i + 1}
+				style:opacity={isAnimatingToHere(card) ? '0' : isBeingDragged(i) ? '0.3' : '1'}
 				class:cursor-grab={card.faceUp}
-				class:opacity-30={isBeingDragged(i)}
 				use:dragController.draggable={ref}
 				data-card-index={i}
 				role="button"

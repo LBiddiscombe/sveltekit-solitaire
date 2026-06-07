@@ -6,22 +6,11 @@ beforeEach(() => {
 	game.newGame(42);
 });
 
-function topCard(pile: Card[]): Card | null {
-	return pile.length > 0 ? pile[pile.length - 1] : null;
-}
-
 describe('Game', () => {
 	describe('newGame', () => {
-		it('creates 7 tableau columns with correct sizing', () => {
+		it('creates 7 empty tableau columns', () => {
 			expect(game.tableau).toHaveLength(7);
-			expect(game.tableau[0]).toHaveLength(1);
-			expect(game.tableau[6]).toHaveLength(7);
-		});
-
-		it('all tableau columns have the top card face-up', () => {
-			for (const col of game.tableau) {
-				expect(topCard(col)!.faceUp).toBe(true);
-			}
+			expect(game.tableau.every((col) => col.length === 0)).toBe(true);
 		});
 
 		it('starts with empty waste and foundations', () => {
@@ -29,8 +18,8 @@ describe('Game', () => {
 			expect(game.foundations.every((f) => f.length === 0)).toBe(true);
 		});
 
-		it('starts with 24 cards in stock', () => {
-			expect(game.stock).toHaveLength(24);
+		it('starts with all 52 cards in stock', () => {
+			expect(game.stock).toHaveLength(52);
 		});
 
 		it('clears undo and redo stacks', () => {
@@ -46,7 +35,7 @@ describe('Game', () => {
 		it('moves 3 cards from stock to waste and marks them face-up', () => {
 			game.drawFromStock();
 			expect(game.waste).toHaveLength(3);
-			expect(game.stock).toHaveLength(21);
+			expect(game.stock).toHaveLength(49);
 			expect(game.waste.every((c) => c.faceUp)).toBe(true);
 		});
 
@@ -74,8 +63,8 @@ describe('Game', () => {
 	describe('startDrag / cancelDrag', () => {
 		it('starts drag from tableau for a face-up card', () => {
 			const ref: PileRef = { kind: 'tableau', index: 6 };
-			const lastIdx = game.tableau[6].length - 1;
-			game.startDrag(ref, lastIdx);
+			game.tableau[6] = [{ suit: 'hearts', rank: 'k', faceUp: true }];
+			game.startDrag(ref, 0);
 			expect(game.dragging).not.toBeNull();
 			expect(game.dragging!.from).toEqual(ref);
 		});
@@ -88,14 +77,15 @@ describe('Game', () => {
 
 		it('rejects drag of face-down card from tableau', () => {
 			const ref: PileRef = { kind: 'tableau', index: 6 };
+			game.tableau[6] = [{ suit: 'spades', rank: 'a', faceUp: false }];
 			game.startDrag(ref, 0);
 			expect(game.dragging).toBeNull();
 		});
 
 		it('cancelDrag clears dragging state', () => {
 			const ref: PileRef = { kind: 'tableau', index: 6 };
-			const lastIdx = game.tableau[6].length - 1;
-			game.startDrag(ref, lastIdx);
+			game.tableau[6] = [{ suit: 'hearts', rank: 'k', faceUp: true }];
+			game.startDrag(ref, 0);
 			expect(game.dragging).not.toBeNull();
 			game.cancelDrag();
 			expect(game.dragging).toBeNull();
@@ -171,7 +161,16 @@ describe('Game', () => {
 			expect(game.foundations[0][1].rank).toBe('2');
 		});
 
-		it('returns false when card cannot move to any foundation', () => {
+		it('returns false when card cannot move to any foundation or tableau', () => {
+			game.tableau = [
+				[{ suit: 'spades', rank: '3', faceUp: true }],
+				[{ suit: 'clubs', rank: '3', faceUp: true }],
+				[{ suit: 'diamonds', rank: '3', faceUp: true }],
+				[{ suit: 'hearts', rank: '3', faceUp: true }],
+				[{ suit: 'spades', rank: '4', faceUp: true }],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[{ suit: 'diamonds', rank: '4', faceUp: true }]
+			];
 			game.waste = [{ suit: 'spades', rank: 'k', faceUp: true }];
 			const ref: PileRef = { kind: 'waste', index: 0 };
 			const result = game.autoMove(ref, 0);
@@ -179,22 +178,29 @@ describe('Game', () => {
 			expect(game.waste).toHaveLength(1);
 		});
 
-		it('returns false for face-down card', () => {
-			game.tableau[0] = [{ suit: 'spades', rank: 'a', faceUp: false }];
-			const ref: PileRef = { kind: 'tableau', index: 0 };
-			const result = game.autoMove(ref, 0);
-			expect(result).toBe(false);
-		});
-
 		it('moves a king to an empty tableau column when no foundation is available', () => {
-			game.tableau[2] = [];
-			game.tableau[6] = [{ suit: 'hearts', rank: 'k', faceUp: true }];
+			game.tableau = [
+				[{ suit: 'spades', rank: '3', faceUp: true }],
+				[{ suit: 'clubs', rank: '3', faceUp: true }],
+				[],
+				[{ suit: 'hearts', rank: '3', faceUp: true }],
+				[{ suit: 'spades', rank: '4', faceUp: true }],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[{ suit: 'hearts', rank: 'k', faceUp: true }]
+			];
 			const ref: PileRef = { kind: 'tableau', index: 6 };
 			const result = game.autoMove(ref, 0);
 			expect(result).toBe(true);
 			expect(game.tableau[6]).toHaveLength(0);
 			expect(game.tableau[2]).toHaveLength(1);
 			expect(game.tableau[2][0].rank).toBe('k');
+		});
+
+		it('returns false for face-down card', () => {
+			game.tableau[0] = [{ suit: 'spades', rank: 'a', faceUp: false }];
+			const ref: PileRef = { kind: 'tableau', index: 0 };
+			const result = game.autoMove(ref, 0);
+			expect(result).toBe(false);
 		});
 
 		it('prefers foundation over tableau when both are available', () => {
@@ -210,11 +216,18 @@ describe('Game', () => {
 		});
 
 		it('moves a king with cards on top to an empty tableau column', () => {
-			game.tableau[2] = [];
-			game.tableau[6] = [
-				{ suit: 'spades', rank: 'k', faceUp: true },
-				{ suit: 'hearts', rank: 'q', faceUp: true },
-				{ suit: 'spades', rank: 'j', faceUp: true }
+			game.tableau = [
+				[{ suit: 'spades', rank: '3', faceUp: true }],
+				[{ suit: 'clubs', rank: '3', faceUp: true }],
+				[],
+				[{ suit: 'hearts', rank: '3', faceUp: true }],
+				[{ suit: 'spades', rank: '4', faceUp: true }],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[
+					{ suit: 'spades', rank: 'k', faceUp: true },
+					{ suit: 'hearts', rank: 'q', faceUp: true },
+					{ suit: 'spades', rank: 'j', faceUp: true }
+				]
 			];
 			const ref: PileRef = { kind: 'tableau', index: 6 };
 			const result = game.autoMove(ref, 0);
@@ -347,24 +360,20 @@ describe('Game', () => {
 		it('is false when any tableau card is face-down', () => {
 			game.stock = [];
 			game.waste = [];
+			game.tableau[0] = [{ suit: 'spades', rank: 'a', faceUp: false }];
 			expect(game.canSolve).toBe(false);
 		});
 
 		it('is true when stock and waste are empty and all tableau cards are face-up', () => {
 			game.stock = [];
 			game.waste = [];
-			for (const col of game.tableau) {
-				for (const card of col) {
-					card.faceUp = true;
-				}
-			}
+			game.tableau[0] = [{ suit: 'spades', rank: 'a', faceUp: true }];
 			expect(game.canSolve).toBe(true);
 		});
 
 		it('is true when all tableau columns are empty', () => {
 			game.stock = [];
 			game.waste = [];
-			game.tableau = [[], [], [], [], [], [], []];
 			expect(game.canSolve).toBe(true);
 		});
 	});
@@ -373,15 +382,10 @@ describe('Game', () => {
 		it('moves a card from tableau to foundation', () => {
 			game.stock = [];
 			game.waste = [];
-			for (const col of game.tableau) {
-				for (const card of col) {
-					card.faceUp = true;
-				}
-			}
 			game.foundations[0] = [{ suit: 'spades', rank: 'a', faceUp: true }];
 			game.tableau[3] = [{ suit: 'spades', rank: '2', faceUp: true }];
-			const moved = game.solveTick();
-			expect(moved).toBe(true);
+			const result = game.solveTick();
+			expect(result).toBe(true);
 			expect(game.foundations[0]).toHaveLength(2);
 			expect(game.foundations[0][1].rank).toBe('2');
 			expect(game.tableau[3]).toHaveLength(0);
@@ -395,8 +399,8 @@ describe('Game', () => {
 				{ suit: 'spades', rank: '2', faceUp: true }
 			];
 			game.foundations[0] = [{ suit: 'spades', rank: 'a', faceUp: true }];
-			const moved = game.solveTick();
-			expect(moved).toBe(true);
+			const result = game.solveTick();
+			expect(result).toBe(true);
 			expect(game.foundations[0]).toHaveLength(2);
 			expect(game.foundations[0][1].rank).toBe('2');
 			expect(game.tableau[0]).toHaveLength(1);
@@ -406,11 +410,6 @@ describe('Game', () => {
 		it('returns false when no card can move to any foundation', () => {
 			game.stock = [];
 			game.waste = [];
-			for (const col of game.tableau) {
-				for (const card of col) {
-					card.faceUp = true;
-				}
-			}
 			game.foundations = [
 				[{ suit: 'spades', rank: 'k', faceUp: true }],
 				[{ suit: 'clubs', rank: 'k', faceUp: true }],
@@ -423,11 +422,6 @@ describe('Game', () => {
 		it('moves cards until no more moves are possible then returns false', () => {
 			game.stock = [];
 			game.waste = [];
-			for (const col of game.tableau) {
-				for (const card of col) {
-					card.faceUp = true;
-				}
-			}
 			game.foundations[0] = [];
 			game.tableau = [[], [], [], [], [], [], []];
 			const suits = ['spades', 'clubs', 'diamonds', 'hearts'] as const;
@@ -447,11 +441,6 @@ describe('Game', () => {
 		it('does not save snapshots (no undo pollution)', () => {
 			game.stock = [];
 			game.waste = [];
-			for (const col of game.tableau) {
-				for (const card of col) {
-					card.faceUp = true;
-				}
-			}
 			const undoCount = game.undoStack.length;
 			game.foundations[0] = [{ suit: 'spades', rank: 'a', faceUp: true }];
 			game.tableau[3] = [{ suit: 'spades', rank: '2', faceUp: true }];

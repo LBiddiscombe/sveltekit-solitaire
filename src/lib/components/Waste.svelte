@@ -11,6 +11,14 @@
 	const topIndex = $derived(cards.length - 1);
 	const fanStart = $derived(Math.max(0, cards.length - 3));
 	const fanOffset = 15;
+
+	function isAnimatingToHere(card: Card): boolean {
+		const a = game.animatingCard;
+		if (!a) return false;
+		return (
+			a.to.kind === 'waste' && a.to.index === 0 && a.suit === card.suit && a.rank === card.rank
+		);
+	}
 </script>
 
 <div class="flex flex-col items-center">
@@ -25,9 +33,13 @@
 				class="absolute"
 				style:left={`${i >= fanStart ? (i - fanStart) * fanOffset : 0}px`}
 				style:z-index={i + 1}
-				class:opacity-30={game.dragging !== null &&
-					game.dragging.from.kind === 'waste' &&
-					game.dragging.cardIndex === i}
+				style:opacity={isAnimatingToHere(card)
+					? '0'
+					: game.dragging !== null &&
+						  game.dragging.from.kind === 'waste' &&
+						  game.dragging.cardIndex === i
+						? '0.3'
+						: '1'}
 				data-card-index={i}
 				role="button"
 				tabindex={i === topIndex ? 0 : -1}
