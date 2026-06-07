@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { game } from '$lib/state/game.svelte';
 	import { animationHost } from '$lib/animations/host.svelte';
+	import { preloadCardImages } from '$lib/game/card-images';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
@@ -28,6 +29,7 @@
 	});
 
 	onMount(() => {
+		preloadCardImages();
 		game.newGame();
 		queueMicrotask(() => animationHost.startDeal());
 	});

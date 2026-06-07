@@ -43,3 +43,10 @@ export function cardImageUrl(card: Card): string {
 export function cardBackUrl(): string {
 	return cardImages['1B'] ?? '';
 }
+
+export function preloadCardImages(): void {
+	for (const url of Object.values(cardImages)) {
+		const img = new Image();
+		img.src = url;
+	}
+}
