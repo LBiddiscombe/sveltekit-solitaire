@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Card } from '$lib/game/deck';
+	import type { Card } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
 	import { cardBackUrl } from '$lib/game/card-images';
 

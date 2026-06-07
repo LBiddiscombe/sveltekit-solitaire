@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Card } from '$lib/game/deck';
+	import type { Card } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
-	import { draggable, dropZone } from '$lib/actions/dragdrop';
+	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 
 	let { cards }: { cards: Card[] } = $props();
@@ -18,7 +18,7 @@
 		class="relative"
 		style:width={`calc(var(--card-width) + ${Math.max(0, Math.min(3, cards.length) - 1)} * ${fanOffset}px)`}
 		style:height="var(--card-height)"
-		use:dropZone={ref}
+		use:dragController.dropZone={ref}
 	>
 		{#each cards as card, i (i)}
 			<div
@@ -39,7 +39,7 @@
 						class="card-image pointer-events-auto"
 						style:width="var(--card-width)"
 						style:height="var(--card-height)"
-						use:draggable={ref}
+						use:dragController.draggable={ref}
 					/>
 				{:else}
 					<img

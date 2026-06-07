@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Card, PileKind } from '$lib/game/deck';
+	import type { Card, PileKind } from '$lib/game/types';
 	import { game } from '$lib/state/game.svelte';
-	import { draggable, dropZone } from '$lib/actions/dragdrop';
+	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 
 	let {
@@ -40,7 +40,7 @@
 	}
 </script>
 
-<div class="flex flex-col items-center" use:dropZone={ref}>
+<div class="flex flex-col items-center" use:dragController.dropZone={ref}>
 	{#if cards.length === 0}
 		<div
 			class="box-border rounded-lg border-2 border-dashed border-gray-400"
@@ -58,7 +58,7 @@
 				style:z-index={i + 1}
 				class:cursor-grab={card.faceUp}
 				class:opacity-30={isBeingDragged(i)}
-				use:draggable={ref}
+				use:dragController.draggable={ref}
 				data-card-index={i}
 				role="button"
 				tabindex={i === cards.length - 1 ? 0 : -1}

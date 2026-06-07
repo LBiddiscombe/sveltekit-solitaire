@@ -1,4 +1,4 @@
-import type { Card } from './deck';
+import type { Card } from './types';
 
 const globImages = import.meta.glob('$lib/assets/cards/*.svg', {
 	eager: true,

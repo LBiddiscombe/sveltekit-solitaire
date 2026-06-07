@@ -1,5 +1,5 @@
-import type { Card, PileRef } from './deck';
-import { suitColor, rankOrder } from './deck';
+import type { Card } from './types';
+import { suitColor, rankOrder } from './card';
 
 export function canPlaceOnTableau(moving: Card, target: Card | null): boolean {
 	if (!target) {
@@ -40,15 +40,4 @@ export function findMovesToFoundation(moving: Card, foundations: Card[][]): numb
 		}
 	}
 	return null;
-}
-
-export interface Move {
-	from: PileRef;
-	fromCardIndex: number;
-	to: PileRef;
-	count: number;
-}
-
-export function getTopCard(pile: Card[]): Card | null {
-	return pile.length > 0 ? pile[pile.length - 1] : null;
 }

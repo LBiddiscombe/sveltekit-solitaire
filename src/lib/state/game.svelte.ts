@@ -1,5 +1,5 @@
-import type { Card, PileRef } from '$lib/game/deck';
-import { createDeck, shuffle, deal } from '$lib/game/deck';
+import type { Card, PileRef } from '$lib/game/types';
+import { createDeck, shuffle, deal } from '$lib/game/deal';
 import {
 	canPlaceOnTableau,
 	canPlaceOnFoundation,
