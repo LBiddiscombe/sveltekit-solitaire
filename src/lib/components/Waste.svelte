@@ -20,7 +20,7 @@
 		style:height="var(--card-height)"
 		use:dragController.dropZone={ref}
 	>
-		{#each cards as card, i (i)}
+		{#each cards as card, i (`${card.suit}:${card.rank}`)}
 			<div
 				class="absolute"
 				style:left={`${i >= fanStart ? (i - fanStart) * fanOffset : 0}px`}

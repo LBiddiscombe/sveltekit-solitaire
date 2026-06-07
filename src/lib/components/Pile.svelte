@@ -50,7 +50,7 @@
 			{emptyLabel}
 		</div>
 	{:else}
-		{#each cards as card, i (i)}
+		{#each cards as card, i (`${card.suit}:${card.rank}`)}
 			<div
 				class="relative"
 				style:width="var(--card-width)"

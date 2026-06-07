@@ -1,5 +1,5 @@
 import type { Card, PileRef } from '$lib/game/types';
-import { createDeck, shuffle, deal } from '$lib/game/deal';
+import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
 import {
 	canPlaceOnTableau,
 	canPlaceOnFoundation,
@@ -40,8 +40,9 @@ class Game {
 	canUndo = $derived(this.undoStack.length > 0);
 	canRedo = $derived(this.redoStack.length > 0);
 
-	newGame() {
-		const deck = shuffle(createDeck());
+	newGame(seed?: number) {
+		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
+		const deck = shuffle(createDeck(), rand);
 		const dealt = deal(deck);
 		this.stock = dealt.stock;
 		this.waste = [];

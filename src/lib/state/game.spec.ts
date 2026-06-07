@@ -3,7 +3,7 @@ import { game } from './game.svelte';
 import type { Card, PileRef } from '$lib/game/types';
 
 beforeEach(() => {
-	game.newGame();
+	game.newGame(42);
 });
 
 function topCard(pile: Card[]): Card | null {
