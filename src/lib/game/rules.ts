@@ -23,11 +23,13 @@ export function canPlaceOnFoundation(moving: Card, target: Card | null): boolean
 
 export function canMoveFromTableau(card: Card, cardsBelow: Card[]): boolean {
 	if (!card.faceUp) return false;
+	let prev = card;
 	for (const below of cardsBelow) {
 		if (!below.faceUp) return false;
-		const oppositeColor = suitColor(below.suit) !== suitColor(card.suit);
-		const nextRank = rankOrder(card.rank) === rankOrder(below.rank) + 1;
+		const oppositeColor = suitColor(below.suit) !== suitColor(prev.suit);
+		const nextRank = rankOrder(prev.rank) === rankOrder(below.rank) + 1;
 		if (!oppositeColor || !nextRank) return false;
+		prev = below;
 	}
 	return true;
 }
