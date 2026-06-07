@@ -38,6 +38,12 @@ class Game {
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
+	canSolve = $derived(
+		this.stock.length === 0 &&
+			this.waste.length === 0 &&
+			this.tableau.every((col) => col.length === 0 || col.every((c) => c.faceUp))
+	);
+
 	canUndo = $derived(this.undoStack.length > 0);
 	canRedo = $derived(this.redoStack.length > 0);
 
@@ -206,6 +212,24 @@ class Game {
 			to: { kind: 'tableau', index: tableauIndex }
 		};
 		return true;
+	}
+
+	solveTick(): boolean {
+		for (let i = 0; i < 7; i++) {
+			const col = this.tableau[i];
+			if (col.length === 0) continue;
+			const card = col[col.length - 1];
+			const foundationIndex = findMovesToFoundation(card, this.foundations);
+			if (foundationIndex !== null) {
+				col.pop();
+				this.foundations[foundationIndex].push(card);
+				if (col.length > 0) {
+					col[col.length - 1].faceUp = true;
+				}
+				return true;
+			}
+		}
+		return false;
 	}
 
 	clearAutoMoveIndicator() {

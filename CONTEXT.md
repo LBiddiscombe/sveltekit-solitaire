@@ -12,6 +12,8 @@ Cards may be moved from a foundation back to the tableau if the destination colu
 
 **Drag-and-drop** — players move cards by clicking and dragging to the target pile. Implemented via a Svelte action (`use:draggable`) using pointer events. **Tap** on a card auto-moves it to its foundation if a move is possible. Auto-moves animate; drag-drops snap into place.
 
+**Solve** — a button that replaces the waste position when stock is empty, waste is empty, and every tableau card is face-up. Clicking it automates the remaining game by moving each bottom tableau card to its foundation at 100ms intervals until the game is won.
+
 ## Card
 
 A card has a `suit` (spades, clubs, diamonds, hearts), a `rank` (a, 2–10, j, q, k), and a `faceUp` boolean. The CSS class name follows the pattern `pcard-{rank}{suit[0]}` (e.g. `pcard-as`, `pcard-kh`).

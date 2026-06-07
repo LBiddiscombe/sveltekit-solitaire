@@ -6,6 +6,24 @@
 	import Pile from './Pile.svelte';
 
 	let boardEl: HTMLDivElement;
+	let solving = $state(false);
+
+	function startSolve() {
+		solving = true;
+		const interval = setInterval(() => {
+			const moved = game.solveTick();
+			if (!moved || game.isWon) {
+				clearInterval(interval);
+				solving = false;
+			}
+		}, 100);
+	}
+
+	$effect(() => {
+		return () => {
+			if (solving) solving = false;
+		};
+	});
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -38,7 +56,26 @@
 			{/each}
 		</div>
 		<div class="flex gap-2">
-			<Waste cards={game.waste} />
+			{#if game.canSolve && !solving}
+				<button
+					class="flex cursor-pointer items-center justify-center rounded-lg bg-emerald-600 font-semibold text-white hover:bg-emerald-700"
+					style:width="var(--card-width)"
+					style:height="var(--card-height)"
+					onclick={startSolve}
+				>
+					Solve
+				</button>
+			{:else if game.canSolve && solving}
+				<div
+					class="flex items-center justify-center rounded-lg bg-emerald-100 font-semibold text-emerald-600"
+					style:width="var(--card-width)"
+					style:height="var(--card-height)"
+				>
+					...
+				</div>
+			{:else}
+				<Waste cards={game.waste} />
+			{/if}
 			<Stock cards={game.stock} />
 		</div>
 	</div>
@@ -66,14 +103,14 @@
 	<div class="fixed right-4 bottom-4 flex gap-2">
 		<button
 			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white disabled:opacity-30"
-			disabled={!game.canUndo}
+			disabled={!game.canUndo || solving}
 			onclick={() => game.undo()}
 		>
 			Undo
 		</button>
 		<button
 			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white disabled:opacity-30"
-			disabled={!game.canRedo}
+			disabled={!game.canRedo || solving}
 			onclick={() => game.redo()}
 		>
 			Redo
