@@ -1,5 +1,8 @@
+import { browser } from '$app/environment';
 import type { Card, PileRef } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
+
+const STORAGE_KEY = 'solitaire-game';
 import {
 	canPlaceOnTableau,
 	canPlaceOnFoundation,
@@ -35,6 +38,8 @@ class Game {
 	tableau = $state<Card[][]>([[], [], [], [], [], [], []]);
 	foundations = $state<Card[][]>([[], [], [], []]);
 
+	hasSaved = $state(false);
+
 	undoStack = $state<Snapshot[]>([]);
 	redoStack = $state<Snapshot[]>([]);
 
@@ -66,6 +71,8 @@ class Game {
 	canRedo = $derived(this.redoStack.length > 0);
 
 	newGame(seed?: number) {
+		this.clearSaved();
+		this.hasSaved = false;
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);
 		this.stock = deck;
@@ -100,6 +107,7 @@ class Game {
 		if (this.stock.length === 0) {
 			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
 			this.waste = [];
+			this.persist();
 			return;
 		}
 
@@ -110,6 +118,7 @@ class Game {
 			card.faceUp = true;
 			this.waste.push(card);
 		}
+		this.persist();
 	}
 
 	drawOneToWaste() {
@@ -118,6 +127,7 @@ class Game {
 		card.faceUp = true;
 		this.waste.push(card);
 		this.clearHint();
+		this.persist();
 	}
 
 	recycleOneToStock() {
@@ -126,6 +136,7 @@ class Game {
 		card.faceUp = false;
 		this.stock.unshift(card);
 		this.clearHint();
+		this.persist();
 	}
 
 	startDrag(ref: PileRef, cardIndex: number) {
@@ -191,6 +202,7 @@ class Game {
 			}
 		}
 
+		this.persist();
 		return true;
 	}
 
@@ -261,6 +273,7 @@ class Game {
 					card: moved,
 					to: { kind: 'foundation', index: foundationIndex }
 				};
+				this.persist();
 				return true;
 			}
 
@@ -280,6 +293,7 @@ class Game {
 					card: moved,
 					to: { kind: 'tableau', index: tableauIndex }
 				};
+				this.persist();
 				return true;
 			}
 
@@ -309,6 +323,7 @@ class Game {
 			card: movedCards[0],
 			to: { kind: 'tableau', index: tableauIndex }
 		};
+		this.persist();
 		return true;
 	}
 
@@ -341,6 +356,7 @@ class Game {
 			card,
 			to: { kind: 'foundation', index: foundationIndex }
 		};
+		this.persist();
 		return true;
 	}
 
@@ -368,6 +384,7 @@ class Game {
 		this.tableau = snap.tableau;
 		this.foundations = snap.foundations;
 		this.dragging = null;
+		this.persist();
 	}
 
 	redo() {
@@ -380,6 +397,7 @@ class Game {
 		this.tableau = snap.tableau;
 		this.foundations = snap.foundations;
 		this.dragging = null;
+		this.persist();
 	}
 
 	getPile(ref: PileRef): Card[] {
@@ -402,6 +420,38 @@ class Game {
 			tableau: this.tableau.map((p) => deepCloneCards(p)),
 			foundations: this.foundations.map((p) => deepCloneCards(p))
 		};
+	}
+
+	persist() {
+		if (!browser || this.isWon) {
+			if (this.isWon) this.clearSaved();
+			return;
+		}
+		try {
+			localStorage.setItem(
+				STORAGE_KEY,
+				JSON.stringify({
+					stock: this.stock,
+					waste: this.waste,
+					tableau: this.tableau,
+					foundations: this.foundations,
+					undoStack: this.undoStack,
+					redoStack: this.redoStack,
+					seed: this.seed
+				})
+			);
+		} catch {
+			/* best-effort */
+		}
+	}
+
+	private clearSaved() {
+		if (!browser) return;
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+		} catch {
+			/* best-effort */
+		}
 	}
 
 	private saveSnapshot() {
@@ -499,3 +549,26 @@ function findBestHint(game: Game): Hint | null {
 }
 
 export const game = new Game();
+
+export function persistAfterDeal() {
+	game.persist();
+}
+
+if (browser) {
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY);
+		if (raw) {
+			const data = JSON.parse(raw);
+			game.stock = data.stock;
+			game.waste = data.waste;
+			game.tableau = data.tableau;
+			game.foundations = data.foundations;
+			game.undoStack = data.undoStack;
+			game.redoStack = data.redoStack;
+			game.seed = data.seed;
+			game.hasSaved = true;
+		}
+	} catch {
+		/* best-effort */
+	}
+}

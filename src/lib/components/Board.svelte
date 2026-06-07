@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { game } from '$lib/state/game.svelte';
+	import { game, persistAfterDeal } from '$lib/state/game.svelte';
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
 	import Stock from './Stock.svelte';
@@ -28,10 +28,18 @@
 		}
 	});
 
+	async function startNewGame() {
+		animationHost.dispose();
+		game.newGame();
+		await animationHost.startDeal();
+		persistAfterDeal();
+	}
+
 	onMount(() => {
 		preloadCardImages();
-		game.newGame();
-		queueMicrotask(() => animationHost.startDeal());
+		if (!game.hasSaved) {
+			startNewGame();
+		}
 	});
 
 	async function startSolve() {
@@ -50,7 +58,11 @@
 
 <svelte:window onresize={() => updateCardSize()} />
 
-<div bind:this={boardEl} class="mx-auto flex max-w-4xl flex-col gap-4 p-2" class:invisible={!ready}>
+<div
+	bind:this={boardEl}
+	class="mx-auto flex max-w-4xl flex-col gap-4 px-2 pt-4 pb-16"
+	class:invisible={!ready}
+>
 	<div class="flex items-start justify-between">
 		<div class="flex gap-1">
 			{#each game.foundations as foundation, i (i)}
@@ -94,11 +106,7 @@
 				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-					onclick={() => {
-						animationHost.dispose();
-						game.newGame();
-						queueMicrotask(() => animationHost.startDeal());
-					}}
+					onclick={startNewGame}
 				>
 					New Game
 				</button>
@@ -106,53 +114,56 @@
 		</div>
 	{/if}
 
-	<div class="fixed bottom-4 left-4">
-		<button
-			class="rounded-full bg-amber-500 px-4 py-2 text-sm text-white hover:bg-amber-600 disabled:opacity-30"
-			disabled={solving}
-			onclick={async () => {
-				if (animationHost.busy) return;
-				const hint = game.findBestHint();
-				if (!hint) return;
-				game.hint = hint;
-				if (hint.from.kind === 'stock') {
-					setTimeout(() => {
+	<div
+		class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"
+		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
+	>
+		<div
+			class="flex flex-nowrap items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
+		>
+			<button
+				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 hover:text-amber-300 active:scale-95 disabled:opacity-30"
+				disabled={solving}
+				onclick={async () => {
+					if (animationHost.busy) return;
+					const hint = game.findBestHint();
+					if (!hint) return;
+					game.hint = hint;
+					if (hint.from.kind === 'stock') {
+						setTimeout(() => {
+							if (game.hint === hint) game.clearHint();
+						}, 1200);
+					} else {
+						await animationHost.showHint(hint);
 						if (game.hint === hint) game.clearHint();
-					}, 1200);
-				} else {
-					await animationHost.showHint(hint);
-					if (game.hint === hint) game.clearHint();
-				}
-			}}
-		>
-			Hint
-		</button>
-	</div>
-
-	<div class="fixed right-4 bottom-4 flex gap-2">
-		<button
-			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white disabled:opacity-30"
-			disabled={!game.canUndo || solving}
-			onclick={() => game.undo()}
-		>
-			Undo
-		</button>
-		<button
-			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white disabled:opacity-30"
-			disabled={!game.canRedo || solving}
-			onclick={() => game.redo()}
-		>
-			Redo
-		</button>
-		<button
-			class="rounded-full bg-gray-800 px-4 py-2 text-sm text-white"
-			onclick={() => {
-				animationHost.dispose();
-				game.newGame();
-				queueMicrotask(() => animationHost.startDeal());
-			}}
-		>
-			New
-		</button>
+					}
+				}}
+			>
+				<span class="-mt-0.5 text-2xl leading-none">✦</span> Hint
+			</button>
+			<div class="h-5 w-px bg-white/10"></div>
+			<button
+				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				disabled={!game.canUndo || solving}
+				onclick={() => game.undo()}
+			>
+				↩ Undo
+			</button>
+			<div class="h-5 w-px bg-white/10"></div>
+			<button
+				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				disabled={!game.canRedo || solving}
+				onclick={() => game.redo()}
+			>
+				↪ Redo
+			</button>
+			<div class="h-5 w-px bg-white/10"></div>
+			<button
+				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95"
+				onclick={startNewGame}
+			>
+				+ New
+			</button>
+		</div>
 	</div>
 </div>

@@ -316,9 +316,10 @@ export class AnimationHost {
 			const ch =
 				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
 			const cascadeFrac = this.pileCascade({ kind: 'tableau', index: column });
+			const facedownCascadeFrac = this.pileFacedownCascade({ kind: 'tableau', index: column });
 			const prev = col.length > 1 ? col[col.length - 2] : null;
 			const colCount = col.length;
-			const yOffset = prev && !prev.faceUp ? ch * 0.08 : cascadeFrac * ch;
+			const yOffset = prev && !prev.faceUp ? facedownCascadeFrac * ch : cascadeFrac * ch;
 			const srcCardRect: Rect = {
 				x: srcRect.x,
 				y: srcRect.y + (colCount - 1) * yOffset,
@@ -376,6 +377,14 @@ export class AnimationHost {
 		return parseFloat(el.getAttribute('data-pile-cascade') ?? '0.15');
 	}
 
+	private pileFacedownCascade(ref: PileRef): number {
+		const el = document.querySelector(
+			`[data-pile-kind="${ref.kind}"][data-pile-index="${ref.index}"]`
+		);
+		if (!el) return 0.08;
+		return parseFloat(el.getAttribute('data-pile-facedown-cascade') ?? '0.08');
+	}
+
 	cardRectInPile(ref: PileRef, cardIndex: number): Rect | null {
 		const pileRect = this.pileRect(ref);
 		if (!pileRect) return null;
@@ -384,10 +393,11 @@ export class AnimationHost {
 
 		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
 		const cascadeFrac = this.pileCascade(ref);
+		const facedownCascadeFrac = this.pileFacedownCascade(ref);
 
 		let yOffset = 0;
 		for (let j = 0; j < cardIndex; j++) {
-			yOffset += pile[j].faceUp ? cascadeFrac * ch : 0.08 * ch;
+			yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
 		}
 
 		return {
@@ -444,9 +454,12 @@ export class AnimationHost {
 		let yOffset = 0;
 		if (dest.kind === 'tableau') {
 			const dstPile = game.getPile(dest);
+			const facedownCascadeFrac = this.pileFacedownCascade(dest);
 			if (dstPile) {
 				for (let j = 0; j < dstCount; j++) {
-					yOffset += dstPile[j].faceUp ? cascadeFrac * cardHeight : 0.08 * cardHeight;
+					yOffset += dstPile[j].faceUp
+						? cascadeFrac * cardHeight
+						: facedownCascadeFrac * cardHeight;
 				}
 			}
 		}

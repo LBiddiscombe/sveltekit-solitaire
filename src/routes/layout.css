@@ -7,10 +7,19 @@
 
 body {
 	background-color: #166534;
-	touch-action: none;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	touch-action: manipulation;
 	-webkit-touch-callout: none;
 	-webkit-user-select: none;
 	user-select: none;
+}
+
+header,
+header * {
+	touch-action: auto;
+	-webkit-user-select: auto;
+	user-select: auto;
 }
 
 .card-image {
