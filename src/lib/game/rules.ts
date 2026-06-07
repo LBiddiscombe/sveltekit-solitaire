@@ -43,3 +43,13 @@ export function findMovesToFoundation(moving: Card, foundations: Card[][]): numb
 	}
 	return null;
 }
+
+export function findMovesToTableau(moving: Card, tableaus: Card[][]): number | null {
+	for (let i = 0; i < 7; i++) {
+		const top = tableaus[i].length > 0 ? tableaus[i][tableaus[i].length - 1] : null;
+		if (canPlaceOnTableau(moving, top)) {
+			return i;
+		}
+	}
+	return null;
+}

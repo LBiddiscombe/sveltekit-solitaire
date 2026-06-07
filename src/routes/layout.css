@@ -7,10 +7,15 @@
 
 body {
 	background-color: #166534;
+	touch-action: none;
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	user-select: none;
 }
 
 .card-image {
 	touch-action: none;
 	-webkit-user-select: none;
 	user-select: none;
+	-webkit-touch-callout: none;
 }

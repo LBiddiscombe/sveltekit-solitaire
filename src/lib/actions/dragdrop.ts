@@ -44,45 +44,52 @@ export class DragController {
 			if (!cardEl) return;
 			const cardIndex = parseInt(cardEl.dataset.cardIndex!, 10);
 
-			this.game.startDrag(ref, cardIndex);
-			if (!this.game.dragging) return;
-
 			e.preventDefault();
 			e.stopPropagation();
+
+			cardEl.style.transition = 'transform 0.12s ease, box-shadow 0.12s ease';
+			cardEl.style.transform = 'translateY(-3px)';
+			cardEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
 
 			const rect = cardEl.getBoundingClientRect();
 			const startX = e.clientX;
 			const startY = e.clientY;
 			let hasMoved = false;
 
-			this.clone = cardEl.cloneNode(true) as HTMLElement;
-			this.clone.style.margin = '0';
-			this.clone.style.position = 'fixed';
-			this.clone.style.pointerEvents = 'none';
-			this.clone.style.zIndex = '1000';
-			this.clone.style.left = `${e.clientX - rect.width / 2}px`;
-			this.clone.style.top = `${e.clientY - rect.height / 2}px`;
-			this.clone.style.width = `${rect.width}px`;
-			this.clone.style.transform = 'rotate(3deg)';
-			document.body.appendChild(this.clone);
-
-			cardEl.style.opacity = '0.3';
-
 			const onPointerMove = (e: PointerEvent) => {
-				if (!this.clone) return;
-				const dx = e.clientX - startX;
-				const dy = e.clientY - startY;
-				if (dx * dx + dy * dy > 25) {
+				if (!hasMoved) {
+					const dx = e.clientX - startX;
+					const dy = e.clientY - startY;
+					if (dx * dx + dy * dy <= 25) return;
+					this.game.startDrag(ref, cardIndex);
+					if (!this.game.dragging) {
+						cleanup();
+						return;
+					}
 					hasMoved = true;
+					this.clone = cardEl.cloneNode(true) as HTMLElement;
+					this.clone.style.margin = '0';
+					this.clone.style.position = 'fixed';
+					this.clone.style.pointerEvents = 'none';
+					this.clone.style.zIndex = '1000';
+					this.clone.style.left = `${e.clientX - rect.width / 2}px`;
+					this.clone.style.top = `${e.clientY - rect.height / 2}px`;
+					this.clone.style.width = `${rect.width}px`;
+					this.clone.style.transform = 'rotate(3deg)';
+					document.body.appendChild(this.clone);
+					cardEl.style.transform = '';
+					cardEl.style.boxShadow = '';
+					cardEl.style.opacity = '0.3';
 				}
-				this.clone.style.left = `${e.clientX - rect.width / 2}px`;
-				this.clone.style.top = `${e.clientY - rect.height / 2}px`;
+				if (this.clone) {
+					this.clone.style.left = `${e.clientX - rect.width / 2}px`;
+					this.clone.style.top = `${e.clientY - rect.height / 2}px`;
+				}
 			};
 
 			const onPointerUp = (e: PointerEvent) => {
 				cleanup();
 				if (!hasMoved) {
-					this.game.cancelDrag();
 					this.game.autoMove(ref, cardIndex);
 				} else {
 					const target = this.findDropTarget(e.clientX, e.clientY);
@@ -109,6 +116,9 @@ export class DragController {
 					this.clone.remove();
 					this.clone = null;
 				}
+				cardEl!.style.transition = '';
+				cardEl!.style.transform = '';
+				cardEl!.style.boxShadow = '';
 				cardEl!.style.opacity = '';
 			};
 

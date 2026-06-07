@@ -10,7 +10,7 @@ Cards may be moved from a foundation back to the tableau if the destination colu
 
 ## Interaction
 
-**Drag-and-drop** — players move cards by clicking and dragging to the target pile. Implemented via a Svelte action (`use:draggable`) using pointer events. **Double-click** on a card auto-moves it to its foundation if a move is possible. Auto-moves animate; drag-drops snap into place.
+**Drag-and-drop** — players move cards by clicking and dragging to the target pile. Implemented via a Svelte action (`use:draggable`) using pointer events. **Tap** on a card auto-moves it to its foundation if a move is possible. Auto-moves animate; drag-drops snap into place.
 
 ## Card
 

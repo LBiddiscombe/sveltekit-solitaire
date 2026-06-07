@@ -4,6 +4,7 @@ import {
 	canPlaceOnTableau,
 	canPlaceOnFoundation,
 	findMovesToFoundation,
+	findMovesToTableau,
 	canMoveFromTableau
 } from '$lib/game/rules';
 
@@ -32,7 +33,7 @@ class Game {
 	lastAutoMove = $state<{
 		from: PileRef;
 		card: Card;
-		toFoundationIndex: number;
+		to: PileRef;
 	} | null>(null);
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
@@ -139,15 +140,58 @@ class Game {
 		const card = pile[cardIndex];
 		if (!card.faceUp) return false;
 
-		if (cardIndex !== pile.length - 1) return false;
+		if (cardIndex === pile.length - 1) {
+			const foundationIndex = findMovesToFoundation(card, this.foundations);
+			if (foundationIndex !== null) {
+				this.saveSnapshot();
+				const [moved] = pile.splice(cardIndex, 1);
+				this.foundations[foundationIndex].push(moved);
+				if (ref.kind === 'tableau' && pile.length > 0) {
+					const newTop = pile[pile.length - 1];
+					if (!newTop.faceUp) {
+						newTop.faceUp = true;
+					}
+				}
+				this.lastAutoMove = {
+					from: ref,
+					card: moved,
+					to: { kind: 'foundation', index: foundationIndex }
+				};
+				return true;
+			}
 
-		const foundationIndex = findMovesToFoundation(card, this.foundations);
-		if (foundationIndex === null) return false;
+			const tableauIndex = findMovesToTableau(card, this.tableau);
+			if (tableauIndex !== null) {
+				this.saveSnapshot();
+				const [moved] = pile.splice(cardIndex, 1);
+				this.tableau[tableauIndex].push(moved);
+				if (ref.kind === 'tableau' && pile.length > 0) {
+					const newTop = pile[pile.length - 1];
+					if (!newTop.faceUp) {
+						newTop.faceUp = true;
+					}
+				}
+				this.lastAutoMove = {
+					from: ref,
+					card: moved,
+					to: { kind: 'tableau', index: tableauIndex }
+				};
+				return true;
+			}
+
+			return false;
+		}
+
+		const cardsBelow = pile.slice(cardIndex + 1);
+		if (!canMoveFromTableau(card, cardsBelow)) return false;
+
+		const tableauIndex = findMovesToTableau(card, this.tableau);
+		if (tableauIndex === null) return false;
 
 		this.saveSnapshot();
-
-		const [moved] = pile.splice(cardIndex, 1);
-		this.foundations[foundationIndex].push(moved);
+		const count = pile.length - cardIndex;
+		const movedCards = pile.splice(cardIndex, count);
+		this.tableau[tableauIndex].push(...movedCards);
 
 		if (ref.kind === 'tableau' && pile.length > 0) {
 			const newTop = pile[pile.length - 1];
@@ -158,10 +202,9 @@ class Game {
 
 		this.lastAutoMove = {
 			from: ref,
-			card: moved,
-			toFoundationIndex: foundationIndex
+			card: movedCards[0],
+			to: { kind: 'tableau', index: tableauIndex }
 		};
-
 		return true;
 	}
 

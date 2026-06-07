@@ -185,6 +185,59 @@ describe('Game', () => {
 			const result = game.autoMove(ref, 0);
 			expect(result).toBe(false);
 		});
+
+		it('moves a king to an empty tableau column when no foundation is available', () => {
+			game.tableau[2] = [];
+			game.tableau[6] = [{ suit: 'hearts', rank: 'k', faceUp: true }];
+			const ref: PileRef = { kind: 'tableau', index: 6 };
+			const result = game.autoMove(ref, 0);
+			expect(result).toBe(true);
+			expect(game.tableau[6]).toHaveLength(0);
+			expect(game.tableau[2]).toHaveLength(1);
+			expect(game.tableau[2][0].rank).toBe('k');
+		});
+
+		it('prefers foundation over tableau when both are available', () => {
+			game.tableau[2] = [{ suit: 'spades', rank: 'a', faceUp: true }];
+			game.tableau[3] = [{ suit: 'hearts', rank: 'a', faceUp: true }];
+			game.foundations[0] = [{ suit: 'diamonds', rank: 'a', faceUp: true }];
+			game.waste = [{ suit: 'diamonds', rank: '2', faceUp: true }];
+			const ref: PileRef = { kind: 'waste', index: 0 };
+			const result = game.autoMove(ref, 0);
+			expect(result).toBe(true);
+			expect(game.foundations[0]).toHaveLength(2);
+			expect(game.tableau[2]).toHaveLength(1);
+		});
+
+		it('moves a king with cards on top to an empty tableau column', () => {
+			game.tableau[2] = [];
+			game.tableau[6] = [
+				{ suit: 'spades', rank: 'k', faceUp: true },
+				{ suit: 'hearts', rank: 'q', faceUp: true },
+				{ suit: 'spades', rank: 'j', faceUp: true }
+			];
+			const ref: PileRef = { kind: 'tableau', index: 6 };
+			const result = game.autoMove(ref, 0);
+			expect(result).toBe(true);
+			expect(game.tableau[6]).toHaveLength(0);
+			expect(game.tableau[2]).toHaveLength(3);
+			expect(game.tableau[2].map((c) => c.rank)).toEqual(['k', 'q', 'j']);
+		});
+
+		it('moves a sequence onto a matching tableau column', () => {
+			game.tableau = game.tableau.map(() => []);
+			game.tableau[1] = [{ suit: 'clubs', rank: '7', faceUp: true }];
+			game.tableau[6] = [
+				{ suit: 'hearts', rank: '6', faceUp: true },
+				{ suit: 'spades', rank: '5', faceUp: true }
+			];
+			const ref: PileRef = { kind: 'tableau', index: 6 };
+			const result = game.autoMove(ref, 0);
+			expect(result).toBe(true);
+			expect(game.tableau[6]).toHaveLength(0);
+			expect(game.tableau[1]).toHaveLength(3);
+			expect(game.tableau[1].map((c) => c.rank)).toEqual(['7', '6', '5']);
+		});
 	});
 
 	describe('undo / redo', () => {
