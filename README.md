@@ -87,7 +87,7 @@ src/
 - **SvelteKit 5** — runes (`$state`, `$derived`, `$effect`), no stores
 - **TypeScript** — strict mode
 - **Tailwind CSS 4** — via `@tailwindcss/vite`
-- **SVG card faces** — based on the public-domain [SVG-cards](https://github.com/htdebeer/SVG-cards) set; we've modified the asset loading and card-back design, so any quirks are our own, not the original author's
+- **PNG card faces** — purchased here https://www.gameart2d.com/playing-card-game-assets-pack.html
 - **Vitest** — unit tests + browser component tests
 - **Playwright** — E2E tests
 - **Prettier + ESLint** — linting and formatting

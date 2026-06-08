@@ -1,6 +1,6 @@
 import type { Card } from './types';
 
-const globImages = import.meta.glob('$lib/assets/cards/*.svg', {
+const globImages = import.meta.glob('$lib/assets/cards/*.png', {
 	eager: true,
 	query: '?url',
 	import: 'default'
@@ -9,7 +9,7 @@ const globImages = import.meta.glob('$lib/assets/cards/*.svg', {
 const cardImages: Record<string, string> = {};
 for (const [path, url] of Object.entries(globImages)) {
 	const filename = path.split('/').pop()!;
-	const name = filename.replace('.svg', '');
+	const name = filename.replace('.png', '');
 	cardImages[name] = url;
 }
 
