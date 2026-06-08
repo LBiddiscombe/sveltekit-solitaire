@@ -29,3 +29,7 @@ _Avoid_: AnimationController, animController, inline orchestration in components
 **Productive Hint (Tableau-to-Tableau)**:
 A tableau-to-tableau move is considered productive enough to hint when it either (a) reveals a face-down card, (b) reveals a face-up card that can immediately move to a foundation, or (c) empties a column by moving its only remaining card (which is not a King). Moving a lone King between empty columns never reveals anything and is never hinted. The hint system does not evaluate moves 2+ steps deep.
 _Rationale_: Prevents hint cycles where cards are shuffled between columns without advancing the game.
+
+**Stuck (isStuck)**:
+A game state where no immediate moves remain and the greedy stock-cycle simulation found no playable cards after 3 recycles. Set by the hint system when the player asks for a hint and the simulation confirms a dead end. Cleared automatically on any action (draw, move, undo, redo). May false-negative in rare multi-ply sequences.
+_Avoid_: Dead, lost, game over (too final — the overlay is dismissable)

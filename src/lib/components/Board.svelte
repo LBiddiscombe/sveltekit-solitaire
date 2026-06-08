@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { game, persistAfterDeal } from '$lib/state/game.svelte';
+	import { game, persistAfterDeal, simulateStockCycle } from '$lib/state/game.svelte';
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
 	import Stock from './Stock.svelte';
@@ -114,6 +114,32 @@
 		</div>
 	{/if}
 
+	{#if game.isStuck}
+		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+				<h2 class="mb-4 text-3xl font-bold">No More Obvious Moves</h2>
+				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+					The hint system couldn't find any immediate moves, even after cycling through the stock.
+					This isn't a perfect solver — if you spot a multi-step workaround, go for it!
+				</p>
+				<div class="flex justify-center gap-3">
+					<button
+						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+						onclick={() => game.dismissStuck()}
+					>
+						Keep Trying
+					</button>
+					<button
+						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
+						onclick={startNewGame}
+					>
+						New Game
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div
 		class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"
 		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
@@ -128,6 +154,13 @@
 					if (animationHost.busy) return;
 					const hint = game.findBestHint();
 					if (!hint) return;
+					if (hint.from.kind === 'stock') {
+						const hasCycleMove = simulateStockCycle(game);
+						if (!hasCycleMove) {
+							game.stuckOverride = true;
+							return;
+						}
+					}
 					game.hint = hint;
 					if (hint.from.kind === 'stock') {
 						setTimeout(() => {

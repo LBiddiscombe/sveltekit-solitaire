@@ -28,3 +28,17 @@ header * {
 	user-select: none;
 	-webkit-touch-callout: none;
 }
+
+@keyframes outline-pulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5);
+	}
+	50% {
+		box-shadow: 0 0 0 6px rgba(251, 191, 36, 1);
+	}
+}
+
+.animate-outline-pulse {
+	animation: outline-pulse 1.5s ease-in-out infinite;
+}

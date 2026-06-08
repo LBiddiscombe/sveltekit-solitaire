@@ -402,8 +402,7 @@ export class AnimationHost {
 				yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
 			}
 		} else if (ref.kind === 'waste') {
-			const cw =
-				parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
+			const cw = parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
 			const fanStart = Math.max(0, pile.length - 3);
 			xOffset = cardIndex >= fanStart ? (cardIndex - fanStart) * 0.5 * cw : 0;
 		}

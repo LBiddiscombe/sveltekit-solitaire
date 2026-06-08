@@ -61,6 +61,14 @@ class Game {
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
+	stuckOverride = $state(false);
+
+	isImmediatelyStuck = $derived(
+		this.stock.length === 0 && this.waste.length === 0 && !hasImmediateMove(this)
+	);
+
+	isStuck = $derived((this.isImmediatelyStuck || this.stuckOverride) && !this.isWon);
+
 	canSolve = $derived(
 		this.stock.length === 0 &&
 			this.waste.length === 0 &&
@@ -73,6 +81,7 @@ class Game {
 	newGame(seed?: number) {
 		this.clearSaved();
 		this.hasSaved = false;
+		this.clearStuck();
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);
 		this.stock = deck;
@@ -103,6 +112,7 @@ class Game {
 	}
 
 	drawFromStock() {
+		this.clearStuck();
 		this.clearHint();
 		if (this.stock.length === 0) {
 			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
@@ -124,6 +134,7 @@ class Game {
 	drawOneToWaste() {
 		const card = this.stock.pop();
 		if (!card) return;
+		this.clearStuck();
 		card.faceUp = true;
 		this.waste.push(card);
 		this.clearHint();
@@ -133,6 +144,7 @@ class Game {
 	recycleOneToStock() {
 		const card = this.waste.pop();
 		if (!card) return;
+		this.clearStuck();
 		card.faceUp = false;
 		this.stock.unshift(card);
 		this.clearHint();
@@ -189,6 +201,7 @@ class Game {
 
 		if (!valid) return false;
 
+		this.clearStuck();
 		this.clearHint();
 		this.saveSnapshot();
 
@@ -250,6 +263,7 @@ class Game {
 	}
 
 	autoMove(ref: PileRef, cardIndex: number): boolean {
+		this.clearStuck();
 		this.clearHint();
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return false;
@@ -341,6 +355,7 @@ class Game {
 	}
 
 	solveTickAt(column: number, foundationIndex: number): boolean {
+		this.clearStuck();
 		this.clearHint();
 		const col = this.tableau[column];
 		if (col.length === 0) return false;
@@ -374,7 +389,16 @@ class Game {
 		this.hint = null;
 	}
 
+	clearStuck() {
+		this.stuckOverride = false;
+	}
+
+	dismissStuck() {
+		this.stuckOverride = false;
+	}
+
 	undo() {
+		this.clearStuck();
 		this.clearHint();
 		if (this.undoStack.length === 0) return;
 		this.redoStack.push(this.snapshot());
@@ -388,6 +412,7 @@ class Game {
 	}
 
 	redo() {
+		this.clearStuck();
 		this.clearHint();
 		if (this.redoStack.length === 0) return;
 		this.undoStack.push(this.snapshot());
@@ -556,6 +581,106 @@ function findBestHint(game: Game): Hint | null {
 	}
 
 	return null;
+}
+
+function hasImmediateMove(game: Game): boolean {
+	for (const col of game.tableau) {
+		if (col.length === 0) continue;
+		const card = col[col.length - 1];
+		if (!card.faceUp) continue;
+		if (findMovesToFoundation(card, game.foundations) !== null) return true;
+	}
+
+	if (game.waste.length > 0) {
+		const card = game.waste[game.waste.length - 1];
+		if (findMovesToFoundation(card, game.foundations) !== null) return true;
+		for (const col of game.tableau) {
+			const top = col.length > 0 ? col[col.length - 1] : null;
+			if (canPlaceOnTableau(card, top)) return true;
+		}
+	}
+
+	for (let i = 0; i < 7; i++) {
+		const col = game.tableau[i];
+		for (let j = 0; j < col.length; j++) {
+			const card = col[j];
+			if (!card.faceUp) continue;
+			const cardsBelow = col.slice(j + 1);
+			if (!canMoveFromTableau(card, cardsBelow)) continue;
+			for (let k = 0; k < 7; k++) {
+				if (k === i) continue;
+				const top = game.tableau[k].length > 0 ? game.tableau[k][game.tableau[k].length - 1] : null;
+				if (canPlaceOnTableau(card, top)) return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+export function simulateStockCycle(game: Game): boolean {
+	const stock = game.stock.map((c) => ({ ...c }));
+	const waste = game.waste.map((c) => ({ ...c }));
+	const tableau = game.tableau.map((col) => col.map((c) => ({ ...c })));
+	const foundations = game.foundations.map((col) => col.map((c) => ({ ...c })));
+
+	let anyPlaced = false;
+
+	for (let cycle = 0; cycle < 3; cycle++) {
+		while (stock.length > 0) {
+			const count = Math.min(3, stock.length);
+			const drawn = stock.splice(0, count);
+			for (const card of drawn) {
+				card.faceUp = true;
+				waste.push(card);
+			}
+
+			while (waste.length > 0) {
+				const top = waste[waste.length - 1];
+
+				const fi = findMovesToFoundation(top, foundations);
+				if (fi !== null) {
+					waste.pop();
+					foundations[fi].push(top);
+					anyPlaced = true;
+					continue;
+				}
+
+				let placed = false;
+				for (let i = 0; i < 7; i++) {
+					const target = tableau[i].length > 0 ? tableau[i][tableau[i].length - 1] : null;
+					if (canPlaceOnTableau(top, target)) {
+						waste.pop();
+						tableau[i].push(top);
+						anyPlaced = true;
+						placed = true;
+						break;
+					}
+				}
+				if (placed) continue;
+
+				break;
+			}
+		}
+
+		if (waste.length > 0) {
+			for (const card of waste) {
+				card.faceUp = false;
+			}
+			stock.push(...waste.splice(0));
+		} else {
+			return true;
+		}
+	}
+
+	return anyPlaced;
+}
+
+export function checkStuck(): boolean {
+	if (game.stock.length === 0 && game.waste.length === 0) return true;
+	const result = !simulateStockCycle(game);
+	if (result) game.stuckOverride = true;
+	return result;
 }
 
 export const game = new Game();

@@ -17,7 +17,6 @@
 
 <button
 	class="flex items-center justify-center"
-	class:animate-pulse={isHinted}
 	style:width="var(--card-width)"
 	onclick={handleClick}
 	data-pile-kind="stock"
@@ -34,12 +33,17 @@
 			title="Click to recycle waste"
 		></div>
 	{:else}
-		<img
-			src={cardBackUrl()}
-			alt=""
-			class="card-image"
-			style:width="var(--card-width)"
-			style:height="var(--card-height)"
-		/>
+		<div class="relative" style:width="var(--card-width)" style:height="var(--card-height)">
+			<img
+				src={cardBackUrl()}
+				alt=""
+				class="card-image"
+				style:width="var(--card-width)"
+				style:height="var(--card-height)"
+			/>
+			{#if isHinted}
+				<div class="animate-outline-pulse pointer-events-none absolute inset-0 rounded-lg"></div>
+			{/if}
+		</div>
 	{/if}
 </button>
