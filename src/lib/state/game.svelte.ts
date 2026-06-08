@@ -11,16 +11,11 @@ import {
 	canMoveFromTableau
 } from '$lib/game/rules';
 
-interface Snapshot {
-	stock: Card[];
-	waste: Card[];
-	tableau: Card[][];
-	foundations: Card[][];
-}
-
-function deepCloneCards(cards: Card[]): Card[] {
-	return cards.map((c) => ({ ...c }));
-}
+import {
+	deepClone,
+	simulateStockCycle as simulateStockCycleOnSnapshot,
+	type GameSnapshot
+} from '$lib/game/snapshot';
 
 export function generateDealPlan(): Array<{ column: number; faceUp: boolean }> {
 	const plan: Array<{ column: number; faceUp: boolean }> = [];
@@ -40,8 +35,8 @@ class Game {
 
 	hasSaved = $state(false);
 
-	undoStack = $state<Snapshot[]>([]);
-	redoStack = $state<Snapshot[]>([]);
+	undoStack = $state<GameSnapshot[]>([]);
+	redoStack = $state<GameSnapshot[]>([]);
 
 	dragging = $state<{
 		from: PileRef;
@@ -438,13 +433,13 @@ class Game {
 		}
 	}
 
-	private snapshot(): Snapshot {
-		return {
-			stock: deepCloneCards(this.stock),
-			waste: deepCloneCards(this.waste),
-			tableau: this.tableau.map((p) => deepCloneCards(p)),
-			foundations: this.foundations.map((p) => deepCloneCards(p))
-		};
+	private snapshot(): GameSnapshot {
+		return deepClone({
+			stock: this.stock,
+			waste: this.waste,
+			tableau: this.tableau,
+			foundations: this.foundations
+		});
 	}
 
 	persist() {
@@ -619,61 +614,12 @@ function hasImmediateMove(game: Game): boolean {
 }
 
 export function simulateStockCycle(game: Game): boolean {
-	const stock = game.stock.map((c) => ({ ...c }));
-	const waste = game.waste.map((c) => ({ ...c }));
-	const tableau = game.tableau.map((col) => col.map((c) => ({ ...c })));
-	const foundations = game.foundations.map((col) => col.map((c) => ({ ...c })));
-
-	let anyPlaced = false;
-
-	for (let cycle = 0; cycle < 3; cycle++) {
-		while (stock.length > 0) {
-			const count = Math.min(3, stock.length);
-			const drawn = stock.splice(0, count);
-			for (const card of drawn) {
-				card.faceUp = true;
-				waste.push(card);
-			}
-
-			while (waste.length > 0) {
-				const top = waste[waste.length - 1];
-
-				const fi = findMovesToFoundation(top, foundations);
-				if (fi !== null) {
-					waste.pop();
-					foundations[fi].push(top);
-					anyPlaced = true;
-					continue;
-				}
-
-				let placed = false;
-				for (let i = 0; i < 7; i++) {
-					const target = tableau[i].length > 0 ? tableau[i][tableau[i].length - 1] : null;
-					if (canPlaceOnTableau(top, target)) {
-						waste.pop();
-						tableau[i].push(top);
-						anyPlaced = true;
-						placed = true;
-						break;
-					}
-				}
-				if (placed) continue;
-
-				break;
-			}
-		}
-
-		if (waste.length > 0) {
-			for (const card of waste) {
-				card.faceUp = false;
-			}
-			stock.push(...waste.splice(0));
-		} else {
-			return true;
-		}
-	}
-
-	return anyPlaced;
+	return simulateStockCycleOnSnapshot({
+		stock: game.stock,
+		waste: game.waste,
+		tableau: game.tableau,
+		foundations: game.foundations
+	});
 }
 
 export function checkStuck(): boolean {
