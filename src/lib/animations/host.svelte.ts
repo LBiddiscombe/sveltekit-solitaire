@@ -391,13 +391,15 @@ export class AnimationHost {
 		const pile = game.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return null;
 
-		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
-		const cascadeFrac = this.pileCascade(ref);
-		const facedownCascadeFrac = this.pileFacedownCascade(ref);
-
 		let yOffset = 0;
-		for (let j = 0; j < cardIndex; j++) {
-			yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
+		if (ref.kind === 'tableau') {
+			const ch =
+				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+			const cascadeFrac = this.pileCascade(ref);
+			const facedownCascadeFrac = this.pileFacedownCascade(ref);
+			for (let j = 0; j < cardIndex; j++) {
+				yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
+			}
 		}
 
 		return {

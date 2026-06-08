@@ -448,4 +448,53 @@ describe('Game', () => {
 			expect(game.undoStack).toHaveLength(undoCount);
 		});
 	});
+
+	describe('findBestHint', () => {
+		it('returns null when no moves are possible', () => {
+			game.tableau = [[], [], [], [], [], [], []];
+			game.stock = [];
+			game.waste = [];
+			expect(game.findBestHint()).toBeNull();
+		});
+
+		it('returns waste top card as fromCardIndex for waste-to-tableau', () => {
+			game.tableau = [
+				[{ suit: 'clubs', rank: '7', faceUp: true }],
+				[],
+				[{ suit: 'clubs', rank: '3', faceUp: true }],
+				[{ suit: 'diamonds', rank: '3', faceUp: true }],
+				[{ suit: 'hearts', rank: '3', faceUp: true }],
+				[{ suit: 'spades', rank: '4', faceUp: true }],
+				[{ suit: 'hearts', rank: 'k', faceUp: true }]
+			];
+			game.stock = [];
+			game.waste = [
+				{ suit: 'hearts', rank: '2', faceUp: true },
+				{ suit: 'diamonds', rank: '6', faceUp: true }
+			];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('waste');
+			expect(hint!.fromCardIndex).toBe(1);
+			expect(hint!.to.kind).toBe('tableau');
+		});
+
+		it('returns stock hint when no other move exists and stock is non-empty', () => {
+			game.tableau = [[], [], [], [], [], [], []];
+			game.waste = [];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('stock');
+		});
+
+		it('prefers tableau-to-foundation over waste-to-tableau', () => {
+			game.tableau = [[{ suit: 'spades', rank: 'a', faceUp: true }], [], [], [], [], [], []];
+			game.foundations = [[], [], [], []];
+			game.waste = [{ suit: 'hearts', rank: '2', faceUp: true }];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('tableau');
+			expect(hint!.to.kind).toBe('foundation');
+		});
+	});
 });
