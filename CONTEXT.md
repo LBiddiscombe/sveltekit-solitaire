@@ -25,3 +25,7 @@ When the Stock is empty, the entire Waste pile is turned face-down to become the
 **AnimationHost**:
 The single module that owns all animation state (`animatingCard`, `busy`) and manages the clone lifecycle for card animations (deal, solve, auto-move, drag, flyback). Components import it directly for reactive state. Game model does not reference it.
 _Avoid_: AnimationController, animController, inline orchestration in components
+
+**Productive Hint (Tableau-to-Tableau)**:
+A tableau-to-tableau move is considered productive enough to hint when it either (a) reveals a face-down card, (b) reveals a face-up card that can immediately move to a foundation, or (c) empties a column by moving its only remaining card (which is not a King). Moving a lone King between empty columns never reveals anything and is never hinted. The hint system does not evaluate moves 2+ steps deep.
+_Rationale_: Prevents hint cycles where cards are shuffled between columns without advancing the game.

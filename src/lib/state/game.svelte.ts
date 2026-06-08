@@ -474,6 +474,15 @@ export interface Hint {
 	card: Card;
 }
 
+function isProductiveTableauMove(col: Card[], j: number, foundations: Card[][]): boolean {
+	if (j > 0) {
+		const underneath = col[j - 1];
+		if (!underneath.faceUp) return true;
+		return findMovesToFoundation(underneath, foundations) !== null;
+	}
+	return col[j].rank !== 'k';
+}
+
 function findBestHint(game: Game): Hint | null {
 	for (let i = 0; i < 7; i++) {
 		const col = game.tableau[i];
@@ -524,6 +533,7 @@ function findBestHint(game: Game): Hint | null {
 			if (!card.faceUp) continue;
 			const cardsBelow = col.slice(j + 1);
 			if (!canMoveFromTableau(card, cardsBelow)) continue;
+			if (!isProductiveTableauMove(col, j, game.foundations)) continue;
 			const ti = findMovesToTableau(card, game.tableau);
 			if (ti !== null && ti !== i) {
 				return {

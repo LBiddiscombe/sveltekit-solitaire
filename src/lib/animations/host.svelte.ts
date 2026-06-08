@@ -391,6 +391,7 @@ export class AnimationHost {
 		const pile = game.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return null;
 
+		let xOffset = 0;
 		let yOffset = 0;
 		if (ref.kind === 'tableau') {
 			const ch =
@@ -400,10 +401,15 @@ export class AnimationHost {
 			for (let j = 0; j < cardIndex; j++) {
 				yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
 			}
+		} else if (ref.kind === 'waste') {
+			const cw =
+				parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
+			const fanStart = Math.max(0, pile.length - 3);
+			xOffset = cardIndex >= fanStart ? (cardIndex - fanStart) * 0.5 * cw : 0;
 		}
 
 		return {
-			x: pileRect.x,
+			x: pileRect.x + xOffset,
 			y: pileRect.y + yOffset,
 			width: pileRect.width,
 			height: pileRect.height

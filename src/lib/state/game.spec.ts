@@ -496,5 +496,80 @@ describe('Game', () => {
 			expect(hint!.from.kind).toBe('tableau');
 			expect(hint!.to.kind).toBe('foundation');
 		});
+
+		it('skips lone-King tableau-to-tableau as unproductive', () => {
+			game.tableau = [[{ suit: 'spades', rank: 'k', faceUp: true }], [], [], [], [], [], []];
+			game.stock = [{ suit: 'hearts', rank: '2', faceUp: false }];
+			game.waste = [];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('stock');
+		});
+
+		it('allows tableau-to-tableau that reveals a face-down card', () => {
+			game.tableau = [
+				[
+					{ suit: 'hearts', rank: '5', faceUp: false },
+					{ suit: 'hearts', rank: '3', faceUp: true }
+				],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[],
+				[],
+				[],
+				[],
+				[]
+			];
+			game.foundations = [[], [], [], []];
+			game.stock = [];
+			game.waste = [];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('tableau');
+			expect(hint!.fromCardIndex).toBe(1);
+			expect(hint!.to.kind).toBe('tableau');
+		});
+
+		it('allows tableau-to-tableau that reveals a foundation-bound card', () => {
+			game.tableau = [
+				[
+					{ suit: 'spades', rank: '2', faceUp: true },
+					{ suit: 'hearts', rank: '3', faceUp: true }
+				],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[],
+				[],
+				[],
+				[],
+				[]
+			];
+			game.foundations = [[{ suit: 'spades', rank: 'a', faceUp: true }], [], [], []];
+			game.stock = [];
+			game.waste = [];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('tableau');
+			expect(hint!.fromCardIndex).toBe(1);
+			expect(hint!.to.kind).toBe('tableau');
+		});
+
+		it('allows tableau-to-tableau that empties a column (non-King bottom card)', () => {
+			game.tableau = [
+				[{ suit: 'hearts', rank: '3', faceUp: true }],
+				[{ suit: 'clubs', rank: '4', faceUp: true }],
+				[],
+				[],
+				[],
+				[],
+				[]
+			];
+			game.foundations = [[], [], [], []];
+			game.stock = [];
+			game.waste = [];
+			const hint = game.findBestHint();
+			expect(hint).not.toBeNull();
+			expect(hint!.from.kind).toBe('tableau');
+			expect(hint!.fromCardIndex).toBe(0);
+			expect(hint!.to.kind).toBe('tableau');
+		});
 	});
 });
