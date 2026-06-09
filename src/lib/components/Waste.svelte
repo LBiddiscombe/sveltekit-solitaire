@@ -20,6 +20,11 @@
 			a.to.kind === 'waste' && a.to.index === 0 && a.suit === card.suit && a.rank === card.rank
 		);
 	}
+
+	function isAnimatingDraw(i: number): boolean {
+		const d = animationHost.drawAnimation;
+		return d !== null && i >= cards.length - d.count;
+	}
 </script>
 
 <div class="flex flex-col items-center">
@@ -34,7 +39,7 @@
 				class="absolute"
 				style:left={`calc(var(--card-width) * ${i >= fanStart ? (i - fanStart) * fanOffset : 0})`}
 				style:z-index={i + 1}
-				style:opacity={isAnimatingToHere(card)
+				style:opacity={isAnimatingToHere(card) || isAnimatingDraw(i)
 					? '0'
 					: game.dragging !== null &&
 						  game.dragging.from.kind === 'waste' &&

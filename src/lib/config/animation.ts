@@ -29,5 +29,20 @@ export const animation = {
 	hint: {
 		flightMs: 400,
 		easing: 'ease-out'
+	},
+	shake: {
+		amplitudePx: 8,
+		durationMs: 350,
+		easing: 'ease-in-out'
+	},
+	dragHold: {
+		scale: 1.05,
+		liftPx: 3,
+		transitionMs: 120,
+		easing: 'ease'
+	},
+	flipReveal: {
+		durationMs: 300,
+		easing: 'ease-out'
 	}
 };

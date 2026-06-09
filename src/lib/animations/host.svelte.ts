@@ -16,6 +16,7 @@ export class AnimationHost {
 	private clones: HTMLDivElement[] = [];
 
 	animatingCard = $state<AnimatingCard | null>(null);
+	drawAnimation = $state<{ count: number } | null>(null);
 	busy = $state(false);
 
 	private createWrapper(): HTMLDivElement {
@@ -357,6 +358,84 @@ export class AnimationHost {
 			await new Promise((r) => setTimeout(r, animation.solve.pauseMs));
 		}
 
+		this.busy = false;
+	}
+
+	async animateDraw(): Promise<void> {
+		if (game.stock.length === 0) {
+			game.drawFromStock();
+			return;
+		}
+
+		this.busy = true;
+
+		const stockEl = document.querySelector('[data-pile-kind="stock"]');
+		if (!stockEl) {
+			game.drawFromStock();
+			this.busy = false;
+			return;
+		}
+		const src = stockEl.getBoundingClientRect();
+		const srcRect: Rect = { x: src.left, y: src.top, width: src.width, height: src.height };
+
+		const wasteEl = document.querySelector('[data-pile-kind="waste"]');
+		if (!wasteEl) {
+			game.drawFromStock();
+			this.busy = false;
+			return;
+		}
+		const wasteRect = wasteEl.getBoundingClientRect();
+
+		const count = Math.min(3, game.stock.length);
+
+		const cw =
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) ||
+			240;
+		const ch =
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) ||
+			200;
+
+		const drawnCardUrls: string[] = [];
+		for (let i = 0; i < count; i++) {
+			drawnCardUrls.push(cardImageUrl(game.stock[i]));
+		}
+
+		this.drawAnimation = { count };
+		game.drawFromStock();
+
+		const newLength = game.waste.length;
+		const fanStart = Math.max(0, newLength - 3);
+
+		const promises: Promise<void>[] = [];
+		for (let i = 0; i < count; i++) {
+			const idx = newLength - count + i;
+			const xOffset = idx >= fanStart ? (idx - fanStart) * 0.5 * cw : 0;
+
+			const targetRect: Rect = {
+				x: wasteRect.x + xOffset,
+				y: wasteRect.y,
+				width: cw,
+				height: ch
+			};
+
+			const delayed =
+				animation.draw.staggerMs > 0 && i > 0
+					? new Promise<void>((r) => setTimeout(r, i * animation.draw.staggerMs))
+					: Promise.resolve();
+
+			promises.push(
+				delayed.then(() =>
+					this.animateFlip(srcRect, targetRect, drawnCardUrls[i], {
+						durationMs: animation.draw.flightMs,
+						easing: animation.draw.easing
+					})
+				)
+			);
+		}
+
+		await Promise.all(promises);
+
+		this.drawAnimation = null;
 		this.busy = false;
 	}
 

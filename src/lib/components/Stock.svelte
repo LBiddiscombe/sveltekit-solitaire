@@ -11,7 +11,7 @@
 
 	function handleClick() {
 		if (animationHost.busy) return;
-		game.drawFromStock();
+		animationHost.animateDraw();
 	}
 </script>
 

@@ -4,6 +4,7 @@
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
+	import { animation } from '$lib/config/animation';
 
 	let {
 		cards,
@@ -77,14 +78,74 @@
 				role="button"
 				tabindex={i === cards.length - 1 ? 0 : -1}
 			>
-				<img
-					src={card.faceUp ? cardImageUrl(card) : cardBackUrl()}
-					alt=""
-					class="card-image"
-					style:width="var(--card-width)"
-					style:height="var(--card-height)"
-				/>
+				{#if kind === 'tableau'}
+					<div
+						class="flip-container"
+						style:width="var(--card-width)"
+						style:height="var(--card-height)"
+					>
+						<div
+							class="flip-inner"
+							class:revealed={card.faceUp}
+							style:transition-duration={`${animation.flipReveal.durationMs}ms`}
+							style:transition-timing-function={animation.flipReveal.easing}
+						>
+							<img
+								src={cardImageUrl(card)}
+								alt=""
+								class="flip-front card-image"
+								style:width="var(--card-width)"
+								style:height="var(--card-height)"
+							/>
+							<img
+								src={cardBackUrl()}
+								alt=""
+								class="flip-back card-image"
+								style:width="var(--card-width)"
+								style:height="var(--card-height)"
+							/>
+						</div>
+					</div>
+				{:else}
+					<img
+						src={card.faceUp ? cardImageUrl(card) : cardBackUrl()}
+						alt=""
+						class="card-image"
+						style:width="var(--card-width)"
+						style:height="var(--card-height)"
+					/>
+				{/if}
 			</div>
 		{/each}
 	{/if}
 </div>
+
+<style>
+	.flip-container {
+		perspective: 800px;
+	}
+
+	.flip-inner {
+		position: relative;
+		width: 100%;
+		height: 100%;
+		transform-style: preserve-3d;
+		transition-property: transform;
+		transform: rotateY(180deg);
+	}
+
+	.flip-inner.revealed {
+		transform: rotateY(0deg);
+	}
+
+	.flip-front,
+	.flip-back {
+		position: absolute;
+		inset: 0;
+		backface-visibility: hidden;
+	}
+
+	.flip-back {
+		transform: rotateY(180deg);
+	}
+</style>

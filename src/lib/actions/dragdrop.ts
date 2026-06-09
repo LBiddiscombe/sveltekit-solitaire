@@ -1,6 +1,7 @@
 import type { PileRef } from '$lib/game/types';
 import { game } from '$lib/state/game.svelte';
 import { animationHost, type Rect } from '$lib/animations/host.svelte';
+import { animation } from '$lib/config/animation';
 
 export interface DragGame {
 	startDrag(ref: PileRef, cardIndex: number): void;
@@ -54,8 +55,9 @@ export class DragController {
 			e.preventDefault();
 			e.stopPropagation();
 
-			cardEl.style.transition = 'transform 0.12s ease, box-shadow 0.12s ease';
-			cardEl.style.transform = 'translateY(-3px)';
+			const dc = animation.dragHold;
+			cardEl.style.transition = `transform ${dc.transitionMs}ms ${dc.easing}, box-shadow ${dc.transitionMs}ms ${dc.easing}`;
+			cardEl.style.transform = `translateY(-${dc.liftPx}px) scale(${dc.scale})`;
 			cardEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
 
 			const rect = cardEl.getBoundingClientRect();
@@ -96,8 +98,28 @@ export class DragController {
 				if (!hasMoved) {
 					cleanup();
 					const srcRect = this.cardRect(cardEl);
-					if (srcRect) {
+					if (srcRect && game.canAutoMove(ref, cardIndex)) {
 						await animationHost.animateAutoMove(ref, cardIndex, srcRect);
+					} else if (srcRect) {
+						const imgEl = cardEl.querySelector('img');
+						if (imgEl) {
+							const a = animation.shake.amplitudePx;
+							imgEl.animate(
+								[
+									{ transform: 'translateX(0)' },
+									{ transform: `translateX(-${a}px)` },
+									{ transform: `translateX(${a}px)` },
+									{ transform: `translateX(-${a}px)` },
+									{ transform: `translateX(${a}px)` },
+									{ transform: `translateX(-${Math.round(a * 0.75)}px)` },
+									{ transform: 'translateX(0)' }
+								],
+								{
+									duration: animation.shake.durationMs,
+									easing: animation.shake.easing
+								}
+							);
+						}
 					}
 				} else {
 					const target = this.findDropTarget(e.clientX, e.clientY);
