@@ -41,5 +41,5 @@ header * {
 }
 
 .animate-outline-pulse {
-	animation: outline-pulse 1.5s ease-in-out infinite;
+	animation: outline-pulse 0.5s ease-in-out 2;
 }

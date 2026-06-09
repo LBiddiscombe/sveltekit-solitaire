@@ -10,6 +10,7 @@
 	let boardEl: HTMLDivElement;
 	let solving = $state(false);
 	let ready = $state(false);
+	let showNewGameConfirm = $state(false);
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -29,10 +30,20 @@
 	});
 
 	async function startNewGame() {
+		showNewGameConfirm = false;
 		animationHost.dispose();
 		game.newGame();
 		await animationHost.startDeal();
 		persistAfterDeal();
+	}
+
+	async function handleNewGameClick() {
+		if (animationHost.busy) return;
+		if (simulateStockCycle(game)) {
+			showNewGameConfirm = true;
+			return;
+		}
+		await startNewGame();
 	}
 
 	onMount(() => {
@@ -140,6 +151,31 @@
 		</div>
 	{/if}
 
+	{#if showNewGameConfirm}
+		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+				<h2 class="mb-4 text-3xl font-bold">Start a New Game?</h2>
+				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+					There are still moves available. Any progress in this game will be lost.
+				</p>
+				<div class="flex justify-center gap-3">
+					<button
+						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+						onclick={() => (showNewGameConfirm = false)}
+					>
+						Cancel
+					</button>
+					<button
+						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
+						onclick={startNewGame}
+					>
+						New Game
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div
 		class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"
 		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
@@ -165,7 +201,7 @@
 					if (hint.from.kind === 'stock') {
 						setTimeout(() => {
 							if (game.hint === hint) game.clearHint();
-						}, 1200);
+						}, 2000);
 					} else {
 						await animationHost.showHint(hint);
 						if (game.hint === hint) game.clearHint();
@@ -193,9 +229,9 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95"
-				onclick={startNewGame}
+				onclick={handleNewGameClick}
 			>
-				+ New
+				+ New Game
 			</button>
 		</div>
 	</div>

@@ -27,11 +27,18 @@
 			style:height="var(--card-height)"
 		></div>
 	{:else if cards.length === 0}
-		<div
-			class="box-border w-full rounded-lg border-2 border-dashed border-gray-300"
-			style:height="var(--card-height)"
-			title="Click to recycle waste"
-		></div>
+		<div class="relative" style:width="var(--card-width)" style:height="var(--card-height)">
+			<div
+				class="box-border w-full rounded-lg border-2 border-dashed border-gray-300"
+				style:height="var(--card-height)"
+				title="Click to recycle waste"
+			></div>
+			{#if isHinted}
+				{#key game.hint}
+					<div class="animate-outline-pulse pointer-events-none absolute inset-0 rounded-lg"></div>
+				{/key}
+			{/if}
+		</div>
 	{:else}
 		<div class="relative" style:width="var(--card-width)" style:height="var(--card-height)">
 			<img
@@ -42,7 +49,9 @@
 				style:height="var(--card-height)"
 			/>
 			{#if isHinted}
-				<div class="animate-outline-pulse pointer-events-none absolute inset-0 rounded-lg"></div>
+				{#key game.hint}
+					<div class="animate-outline-pulse pointer-events-none absolute inset-0 rounded-lg"></div>
+				{/key}
 			{/if}
 		</div>
 	{/if}

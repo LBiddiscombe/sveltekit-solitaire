@@ -33,3 +33,7 @@ _Rationale_: Prevents hint cycles where cards are shuffled between columns witho
 **Stuck (isStuck)**:
 A game state where no immediate moves remain and the greedy stock-cycle simulation found no playable cards after 3 recycles. Set by the hint system when the player asks for a hint and the simulation confirms a dead end. Cleared automatically on any action (draw, move, undo, redo). May false-negative in rare multi-ply sequences.
 _Avoid_: Dead, lost, game over (too final — the overlay is dismissable)
+
+**SimulateStockCycle**:
+A deep-clone simulation that runs up to 3 full stock recycles (draw → try each card against foundation then tableau → recycle) to determine whether any card can ever be placed. Used as the authoritative "game is truly dead" check: if it returns false, no amount of stock cycling will produce a move. Used to gate the New-Game confirmation dialog.
+_Avoid_: hasImmediateMove (surface-level only, doesn't simulate cycling)
