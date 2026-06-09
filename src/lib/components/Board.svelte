@@ -425,7 +425,7 @@
 	{/if}
 
 	<div
-		class="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2"
+		class="fixed bottom-8 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2"
 		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
 	>
 		{#if game.debugMode}

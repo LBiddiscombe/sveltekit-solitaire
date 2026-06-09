@@ -90,7 +90,7 @@
 {/if}
 
 <div
-	class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"
+	class="fixed bottom-8 left-1/2 z-30 -translate-x-1/2"
 	style="touch-action: auto; user-select: auto;"
 >
 	<div
