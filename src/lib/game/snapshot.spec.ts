@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deepClone, isWon, simulateStockCycle, type GameSnapshot } from './snapshot';
+import { deepClone, isWon, type GameSnapshot } from './snapshot';
 import type { Card } from './types';
 
 function card(rank: Card['rank'], suit: Card['suit'], faceUp = true): Card {
@@ -106,43 +106,5 @@ describe('isWon', () => {
 			]
 		};
 		expect(isWon(snapshot)).toBe(false);
-	});
-});
-
-describe('simulateStockCycle', () => {
-	it('returns true when stock and waste are empty (nothing to cycle)', () => {
-		expect(simulateStockCycle(emptySnapshot())).toBe(true);
-	});
-
-	it('returns true when a card from waste can go to foundation', () => {
-		const snapshot: GameSnapshot = {
-			stock: [],
-			waste: [card('a', 'spades')],
-			tableau: [[], [], [], [], [], [], []],
-			foundations: [[], [], [], []]
-		};
-		expect(simulateStockCycle(snapshot)).toBe(true);
-	});
-
-	it('returns false when no card in the cycle can be placed', () => {
-		const snapshot: GameSnapshot = {
-			stock: [card('3', 'spades')],
-			waste: [],
-			tableau: [[], [], [], [], [], [], []],
-			foundations: [[], [], [], []]
-		};
-		expect(simulateStockCycle(snapshot)).toBe(false);
-	});
-
-	it('does not mutate the original snapshot', () => {
-		const snapshot: GameSnapshot = {
-			stock: [card('a', 'spades'), card('2', 'hearts')],
-			waste: [],
-			tableau: [[], [], [], [], [], [], []],
-			foundations: [[], [], [], []]
-		};
-		const stockBefore = snapshot.stock.map((c) => ({ ...c }));
-		simulateStockCycle(snapshot);
-		expect(snapshot.stock).toEqual(stockBefore);
 	});
 });

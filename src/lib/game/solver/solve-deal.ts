@@ -10,7 +10,7 @@ export interface WinnableResult {
 	seed: number;
 }
 
-function searchViaWorker(snapshot: GameSnapshot, timeoutMs: number): Promise<SolverResult> {
+export function searchInWorker(snapshot: GameSnapshot, timeoutMs: number): Promise<SolverResult> {
 	return new Promise((resolve, reject) => {
 		const worker = new Worker(new URL('./worker', import.meta.url), { type: 'module' });
 		worker.onmessage = (event: MessageEvent) => {
@@ -44,7 +44,7 @@ export async function tryFindWinnableDeal(
 			foundations: [[], [], [], []]
 		};
 
-		const result = await searchViaWorker(snapshot, timeoutPerSeed);
+		const result = await searchInWorker(snapshot, timeoutPerSeed);
 		if (result.status === 'solvable') {
 			return { seed };
 		}

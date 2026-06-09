@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { game, persistAfterDeal, simulateStockCycle } from '$lib/state/game.svelte';
+	import { game, persistAfterDeal } from '$lib/state/game.svelte';
+
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
 	import { getSettings } from '$lib/settings';
-	import { tryFindWinnableDeal } from '$lib/game/solver/solve-deal';
+	import { tryFindWinnableDeal, searchInWorker } from '$lib/game/solver/solve-deal';
 	import { searchPath } from '$lib/game/solver/search';
+	import { generateMoves } from '$lib/game/solver/moves';
 	import type { SolverMove } from '$lib/game/solver/types';
+	import { deepClone, type GameSnapshot } from '$lib/game/snapshot';
 	import type { Card, Suit, Rank } from '$lib/game/types';
+	import type { Hint } from '$lib/state/game.svelte';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
@@ -16,6 +20,9 @@
 	let solving = $state(false);
 	let ready = $state(false);
 	let showNewGameConfirm = $state(false);
+	let showStuckDialog = $state(false);
+	let stuckStatus = $state<string | null>(null);
+	let hintToken = 0;
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
 	let debugPlaying = $state(false);
@@ -67,20 +74,52 @@
 		return '';
 	}
 
+	function solverMoveToHint(move: SolverMove): Hint {
+		if (move.kind === 'draw') {
+			return {
+				from: { kind: 'stock', index: 0 },
+				fromCardIndex: 0,
+				to: { kind: 'waste', index: 0 },
+				card: game.stock[0] ?? game.waste[0]
+			};
+		}
+		if (move.kind === 'recycle') {
+			return {
+				from: { kind: 'stock', index: 0 },
+				fromCardIndex: 0,
+				to: { kind: 'waste', index: 0 },
+				card: game.waste[game.waste.length - 1] ?? game.stock[0]
+			};
+		}
+		const pile = game.getPile(move.from);
+		return {
+			from: move.from,
+			fromCardIndex: move.cardIndex,
+			to: move.to,
+			card: pile[move.cardIndex]
+		};
+	}
+
+	function snapshotGame(): GameSnapshot {
+		return deepClone({
+			stock: game.stock,
+			waste: game.waste,
+			tableau: game.tableau,
+			foundations: game.foundations
+		});
+	}
+
+	function hasAnyLegalMove(): boolean {
+		const snapshot = snapshotGame();
+		return generateMoves(snapshot).length > 0 || game.stock.length > 0 || game.waste.length > 0;
+	}
+
 	async function runDebugSolver() {
 		if (!game.debugMode) return;
 		game.solvingInProgress = true;
 		debugStepping = false;
 		await new Promise((r) => setTimeout(r, 50));
-		const result = searchPath(
-			{
-				stock: game.stock,
-				waste: game.waste,
-				tableau: game.tableau,
-				foundations: game.foundations
-			},
-			2000
-		);
+		const result = searchPath(snapshotGame(), 2000);
 		if (result.status === 'solvable' && result.moves.length > 0) {
 			game.loadSolution(result.moves, 'solvable');
 			debugStepping = true;
@@ -143,6 +182,7 @@
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
+		showStuckDialog = false;
 		debugStepping = false;
 		debugPlaying = false;
 		animationHost.dispose();
@@ -175,6 +215,7 @@
 	async function retrySameDeal() {
 		if (animationHost.busy || game.seed === undefined) return;
 		showNewGameConfirm = false;
+		showStuckDialog = false;
 		animationHost.dispose();
 		game.newGame(game.seed);
 		await animationHost.startDeal();
@@ -183,7 +224,7 @@
 
 	async function handleNewGameClick() {
 		if (animationHost.busy) return;
-		if (simulateStockCycle(game)) {
+		if (hasAnyLegalMove()) {
 			showNewGameConfirm = true;
 			return;
 		}
@@ -201,6 +242,38 @@
 			startNewGame();
 		}
 	});
+
+	async function handleHintClick() {
+		if (animationHost.busy || game.hintLoading) return;
+
+		game.hintLoading = true;
+		game.clearHint();
+		showStuckDialog = false;
+
+		try {
+			const result = await searchInWorker(snapshotGame(), 2000);
+
+			if (result.nextMove) {
+				const hint = solverMoveToHint(result.nextMove);
+				const token = ++hintToken;
+				game.hint = hint;
+
+				if (hint.from.kind === 'stock') {
+					setTimeout(() => {
+						if (hintToken === token) game.clearHint();
+					}, 2000);
+				} else {
+					await animationHost.showHint(hint);
+					game.clearHint();
+				}
+			} else {
+				stuckStatus = result.status;
+				showStuckDialog = true;
+			}
+		} finally {
+			game.hintLoading = false;
+		}
+	}
 
 	async function startSolve() {
 		if (animationHost.busy) return;
@@ -274,18 +347,22 @@
 		</div>
 	{/if}
 
-	{#if game.isStuck}
+	{#if showStuckDialog}
 		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-				<h2 class="mb-4 text-3xl font-bold">No More Obvious Moves</h2>
+				<h2 class="mb-4 text-3xl font-bold">No Moves Found</h2>
 				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-					The hint system couldn't find any immediate moves, even after cycling through the stock.
-					This isn't a perfect solver — if you spot a multi-step workaround, go for it!
+					{#if stuckStatus === 'unsolvable'}
+						The solver has determined this deal is unwinnable from this position.
+					{:else}
+						The solver couldn't find a next move within its time limit. If you spot a workaround, go
+						for it!
+					{/if}
 				</p>
 				<div class="flex justify-center gap-3">
 					<button
 						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
-						onclick={() => game.dismissStuck()}
+						onclick={() => (showStuckDialog = false)}
 					>
 						Keep Trying
 					</button>
@@ -421,30 +498,11 @@
 		>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 hover:text-amber-300 active:scale-95 disabled:opacity-30"
-				disabled={solving || searchingWinnable || debugStepping}
-				onclick={async () => {
-					if (animationHost.busy) return;
-					const hint = game.findBestHint();
-					if (!hint) return;
-					if (hint.from.kind === 'stock') {
-						const hasCycleMove = simulateStockCycle(game);
-						if (!hasCycleMove) {
-							game.stuckOverride = true;
-							return;
-						}
-					}
-					game.hint = hint;
-					if (hint.from.kind === 'stock') {
-						setTimeout(() => {
-							if (game.hint === hint) game.clearHint();
-						}, 2000);
-					} else {
-						await animationHost.showHint(hint);
-						if (game.hint === hint) game.clearHint();
-					}
-				}}
+				disabled={solving || searchingWinnable || debugStepping || game.hintLoading}
+				onclick={handleHintClick}
 			>
-				<span class="-mt-0.5 text-2xl leading-none">✦</span> Hint
+				<span class="-mt-0.5 text-2xl leading-none">✦</span>
+				{game.hintLoading ? '...' : 'Hint'}
 			</button>
 			<div class="h-5 w-px bg-white/10"></div>
 			<button

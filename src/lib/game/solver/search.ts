@@ -11,38 +11,56 @@ export function search(initialState: GameSnapshot, timeoutMs: number): SolverRes
 	const startTime = Date.now();
 	let nodesVisited = 0;
 
-	function dfs(state: GameSnapshot): SolverResult {
-		const key = stateKey(state);
-		if (visited.has(key)) {
-			return { status: 'unsolvable', nextMove: null };
-		}
-		visited.add(key);
+	const moves = generateMoves(initialState);
 
-		if (isWon(state)) {
-			return { status: 'solvable', nextMove: null };
+	for (const move of moves) {
+		const nextState = applyMove(initialState, move);
+		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited);
+		if (result.status === 'solvable') {
+			return { status: 'solvable', nextMove: move };
 		}
-
-		nodesVisited++;
-		if (nodesVisited % CHECK_INTERVAL === 0 && Date.now() - startTime > timeoutMs) {
-			return { status: 'undetermined', nextMove: null };
+		if (result.status === 'undetermined') {
+			return { status: 'undetermined', nextMove: move };
 		}
-
-		const moves = generateMoves(state);
-		for (const move of moves) {
-			const nextState = applyMove(state, move);
-			const result = dfs(nextState);
-			if (result.status === 'solvable') {
-				return { status: 'solvable', nextMove: move };
-			}
-			if (result.status === 'undetermined') {
-				return { status: 'undetermined', nextMove: null };
-			}
-		}
-
-		return { status: 'unsolvable', nextMove: null };
+		nodesVisited = result.nodesVisited;
 	}
 
-	return dfs(initialState);
+	return { status: 'unsolvable', nextMove: null };
+}
+
+function dfs(
+	state: GameSnapshot,
+	visited: Set<string>,
+	startTime: number,
+	timeoutMs: number,
+	nodesVisited: number
+): { status: SolvableStatus; nextMove: null; nodesVisited: number } {
+	const key = stateKey(state);
+	if (visited.has(key)) {
+		return { status: 'unsolvable', nextMove: null, nodesVisited };
+	}
+	visited.add(key);
+
+	if (isWon(state)) {
+		return { status: 'solvable', nextMove: null, nodesVisited };
+	}
+
+	nodesVisited++;
+	if (nodesVisited % CHECK_INTERVAL === 0 && Date.now() - startTime > timeoutMs) {
+		return { status: 'undetermined', nextMove: null, nodesVisited };
+	}
+
+	const childMoves = generateMoves(state);
+	for (const move of childMoves) {
+		const nextState = applyMove(state, move);
+		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited);
+		if (result.status === 'solvable' || result.status === 'undetermined') {
+			return result;
+		}
+		nodesVisited = result.nodesVisited;
+	}
+
+	return { status: 'unsolvable', nextMove: null, nodesVisited };
 }
 
 function dfsPath(
