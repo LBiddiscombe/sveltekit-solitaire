@@ -45,13 +45,13 @@
 				</button>
 			</div>
 		</div>
-		<hr class="border-white/10" />
+		<hr class="my-8 border-white/10" />
 		<div class="flex items-center justify-between">
 			<div>
 				<p class="font-medium text-white/90">Clear saved game</p>
 				<p class="mt-0.5 text-sm leading-relaxed text-white/50">
-					Delete the saved game from your browser. Your current game will be lost on the next
-					page load.
+					Delete the saved game from your browser. Your current game will be lost on the next page
+					load.
 				</p>
 			</div>
 			<button
