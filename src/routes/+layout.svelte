@@ -10,6 +10,7 @@
 		<a href={resolveRoute('/')} class="text-lg font-bold tracking-tight text-white/90">Solitaire</a>
 		<nav class="flex gap-4 text-sm font-medium text-white/60">
 			<a href={resolveRoute('/')} class="transition-colors hover:text-white/90">Play</a>
+			<a href={resolveRoute('/stats')} class="transition-colors hover:text-white/90">Stats</a>
 			<a href={resolveRoute('/about')} class="transition-colors hover:text-white/90">About</a>
 			<a href={resolveRoute('/settings')} class="transition-colors hover:text-white/90">Settings</a>
 		</nav>

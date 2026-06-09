@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import type { Card, PileRef } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
+import type { GameMode } from '$lib/stats';
 
 const STORAGE_KEY = 'solitaire-game';
 import {
@@ -29,6 +30,8 @@ class Game {
 	waste = $state<Card[]>([]);
 	tableau = $state<Card[][]>([[], [], [], [], [], [], []]);
 	foundations = $state<Card[][]>([[], [], [], []]);
+
+	mode = $state<GameMode>('random');
 
 	hasSaved = $state(false);
 
@@ -74,7 +77,7 @@ class Game {
 	canUndo = $derived(this.undoStack.length > 0);
 	canRedo = $derived(this.redoStack.length > 0);
 
-	newGame(seed?: number) {
+	newGame(seed?: number, mode?: GameMode) {
 		this.clearSaved();
 		this.hasSaved = false;
 		this.clearSolution();
@@ -82,6 +85,7 @@ class Game {
 		const deck = shuffle(createDeck(), rand);
 		this.stock = deck;
 		this.seed = seed;
+		this.mode = mode ?? 'random';
 		this.waste = [];
 		this.tableau = [[], [], [], [], [], [], []];
 		this.foundations = [[], [], [], []];
@@ -442,7 +446,8 @@ class Game {
 					waste: this.waste,
 					tableau: this.tableau,
 					foundations: this.foundations,
-					seed: this.seed
+					seed: this.seed,
+					mode: this.mode
 				})
 			);
 		} catch {
@@ -592,6 +597,7 @@ if (browser) {
 			game.undoStack = data.undoStack ?? [];
 			game.redoStack = data.redoStack ?? [];
 			game.seed = data.seed;
+			game.mode = data.mode ?? 'random';
 			game.hasSaved = true;
 		}
 	} catch {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { game, persistAfterDeal } from '$lib/state/game.svelte';
+	import { recordGame } from '$lib/stats';
 
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
@@ -26,6 +27,7 @@
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
 	let debugPlaying = $state(false);
+	let winRecorded = $state(false);
 
 	const SUIT_SYMBOLS: Record<Suit, string> = {
 		spades: '♠',
@@ -179,6 +181,13 @@
 		}
 	});
 
+	$effect(() => {
+		if (game.isWon && !winRecorded) {
+			winRecorded = true;
+			recordGame(game.mode, true, 52);
+		}
+	});
+
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
@@ -187,21 +196,28 @@
 		debugPlaying = false;
 		animationHost.dispose();
 
+		if (!game.isWon && (game.stock.length > 0 || game.tableau.some((c) => c.length > 0))) {
+			const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
+			recordGame(game.mode, false, foundationCount);
+		}
+		winRecorded = false;
+
 		const settings = getSettings();
+		const mode = settings.onlyWinnable ? 'winnable' : 'random';
 		if (settings.onlyWinnable) {
 			searchingWinnable = true;
 			try {
 				const result = await tryFindWinnableDeal();
 				if (result) {
-					game.newGame(result.seed);
+					game.newGame(result.seed, mode);
 				} else {
-					game.newGame();
+					game.newGame(undefined, mode);
 				}
 			} finally {
 				searchingWinnable = false;
 			}
 		} else {
-			game.newGame();
+			game.newGame(undefined, mode);
 		}
 
 		await animationHost.startDeal();
@@ -217,7 +233,14 @@
 		showNewGameConfirm = false;
 		showStuckDialog = false;
 		animationHost.dispose();
-		game.newGame(game.seed);
+
+		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
+		recordGame(game.mode, false, foundationCount);
+		winRecorded = false;
+
+		const settings = getSettings();
+		const mode = settings.onlyWinnable ? 'winnable' : 'random';
+		game.newGame(game.seed, mode);
 		await animationHost.startDeal();
 		persistAfterDeal();
 	}
