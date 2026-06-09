@@ -27,11 +27,6 @@ const defaultModeStats = (): ModeStats => ({
 	recent: []
 });
 
-const defaults: StatsData = {
-	random: defaultModeStats(),
-	winnable: defaultModeStats()
-};
-
 function read(): StatsData {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
@@ -45,7 +40,7 @@ function read(): StatsData {
 	} catch {
 		/* best-effort */
 	}
-	return { ...defaults };
+	return { random: defaultModeStats(), winnable: defaultModeStats() };
 }
 
 function write(data: StatsData) {

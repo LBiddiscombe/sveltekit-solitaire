@@ -27,8 +27,6 @@
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
 	let debugPlaying = $state(false);
-	let winRecorded = $state(false);
-
 	const SUIT_SYMBOLS: Record<Suit, string> = {
 		spades: '♠',
 		clubs: '♣',
@@ -182,8 +180,8 @@
 	});
 
 	$effect(() => {
-		if (game.isWon && !winRecorded) {
-			winRecorded = true;
+		if (game.isWon && !game.winRecorded) {
+			game.winRecorded = true;
 			recordGame(game.mode, true, 52);
 		}
 	});
@@ -200,7 +198,7 @@
 			const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
 			recordGame(game.mode, false, foundationCount);
 		}
-		winRecorded = false;
+		game.winRecorded = false;
 
 		const settings = getSettings();
 		const mode = settings.onlyWinnable ? 'winnable' : 'random';
@@ -236,7 +234,7 @@
 
 		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
 		recordGame(game.mode, false, foundationCount);
-		winRecorded = false;
+		game.winRecorded = false;
 
 		const settings = getSettings();
 		const mode = settings.onlyWinnable ? 'winnable' : 'random';
