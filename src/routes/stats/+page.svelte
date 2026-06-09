@@ -46,44 +46,6 @@
 	<h1 class="mb-8 text-2xl font-bold text-white/90">Statistics</h1>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-		<!-- Random Draws -->
-		<div class="rounded-xl bg-white/5 p-6 backdrop-blur-sm">
-			<h2 class="mb-4 text-lg font-semibold text-white/90">Random Draws</h2>
-			<table class="w-full text-sm">
-				<thead>
-					<tr
-						class="border-b border-white/10 text-left text-xs tracking-wide text-white/40 uppercase"
-					>
-						<th class="pb-2 font-medium"></th>
-						<th class="pb-2 font-medium">Lifetime</th>
-						<th class="pb-2 font-medium">Last 20</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-white/10">
-					<tr>
-						<td class="py-2 text-white/50">Games Played</td>
-						<td class="py-2 font-medium text-white/90">{lifetimeRandom.gamesPlayed}</td>
-						<td class="py-2 font-medium text-white/90">{recentRandom.gamesPlayed}</td>
-					</tr>
-					<tr>
-						<td class="py-2 text-white/50">Games Won</td>
-						<td class="py-2 font-medium text-white/90">{lifetimeRandom.gamesWon}</td>
-						<td class="py-2 font-medium text-white/90">{recentRandom.gamesWon}</td>
-					</tr>
-					<tr>
-						<td class="py-2 text-white/50">Win %</td>
-						<td class="py-2 font-medium text-white/90">{pct(lifetimeRandom.winRate)}</td>
-						<td class="py-2 font-medium text-white/90">{pct(recentRandom.winRate)}</td>
-					</tr>
-					<tr>
-						<td class="py-2 text-white/50">Avg Completion</td>
-						<td class="py-2 font-medium text-white/90">{pct(lifetimeRandom.avgCompletion)}</td>
-						<td class="py-2 font-medium text-white/90">{pct(recentRandom.avgCompletion)}</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-
 		<!-- Winnable Only -->
 		<div class="rounded-xl bg-white/5 p-6 backdrop-blur-sm">
 			<h2 class="mb-4 text-lg font-semibold text-white/90">Winnable Only</h2>
@@ -117,6 +79,44 @@
 						<td class="py-2 text-white/50">Avg Completion</td>
 						<td class="py-2 font-medium text-white/90">{pct(lifetimeWinnable.avgCompletion)}</td>
 						<td class="py-2 font-medium text-white/90">{pct(recentWinnable.avgCompletion)}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Random Draws -->
+		<div class="rounded-xl bg-white/5 p-6 backdrop-blur-sm">
+			<h2 class="mb-4 text-lg font-semibold text-white/90">Random Draws</h2>
+			<table class="w-full text-sm">
+				<thead>
+					<tr
+						class="border-b border-white/10 text-left text-xs tracking-wide text-white/40 uppercase"
+					>
+						<th class="pb-2 font-medium"></th>
+						<th class="pb-2 font-medium">Lifetime</th>
+						<th class="pb-2 font-medium">Last 20</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-white/10">
+					<tr>
+						<td class="py-2 text-white/50">Games Played</td>
+						<td class="py-2 font-medium text-white/90">{lifetimeRandom.gamesPlayed}</td>
+						<td class="py-2 font-medium text-white/90">{recentRandom.gamesPlayed}</td>
+					</tr>
+					<tr>
+						<td class="py-2 text-white/50">Games Won</td>
+						<td class="py-2 font-medium text-white/90">{lifetimeRandom.gamesWon}</td>
+						<td class="py-2 font-medium text-white/90">{recentRandom.gamesWon}</td>
+					</tr>
+					<tr>
+						<td class="py-2 text-white/50">Win %</td>
+						<td class="py-2 font-medium text-white/90">{pct(lifetimeRandom.winRate)}</td>
+						<td class="py-2 font-medium text-white/90">{pct(recentRandom.winRate)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 text-white/50">Avg Completion</td>
+						<td class="py-2 font-medium text-white/90">{pct(lifetimeRandom.avgCompletion)}</td>
+						<td class="py-2 font-medium text-white/90">{pct(recentRandom.avgCompletion)}</td>
 					</tr>
 				</tbody>
 			</table>

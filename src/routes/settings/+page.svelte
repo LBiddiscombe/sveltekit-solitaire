@@ -10,8 +10,9 @@
 		settings = updateSettings({ onlyWinnable: next });
 	}
 
-	function clearSavedData() {
+	function clearAllData() {
 		localStorage.removeItem('solitaire-game');
+		localStorage.removeItem('solitaire-stats');
 		showClearConfirm = false;
 	}
 </script>
@@ -48,10 +49,10 @@
 		<hr class="my-8 border-white/10" />
 		<div class="flex items-center justify-between">
 			<div>
-				<p class="font-medium text-white/90">Clear saved game</p>
+				<p class="font-medium text-white/90">Clear all data</p>
 				<p class="mt-0.5 text-sm leading-relaxed text-white/50">
-					Delete the saved game from your browser. Your current game will be lost on the next page
-					load.
+					Delete your current game progress and all statistics. You'll start with a fresh deal on
+					the next game.
 				</p>
 			</div>
 			<button
@@ -67,9 +68,10 @@
 {#if showClearConfirm}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 		<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-			<h2 class="mb-4 text-3xl font-bold">Clear Saved Game?</h2>
+			<h2 class="mb-4 text-3xl font-bold">Clear All Data?</h2>
 			<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-				Your current game progress will be lost. This cannot be undone.
+				Your current game progress and all statistics will be permanently deleted. You'll start with
+				a fresh deal on the next game.
 			</p>
 			<div class="flex justify-center gap-3">
 				<button
@@ -80,7 +82,7 @@
 				</button>
 				<button
 					class="rounded-lg bg-red-600 px-6 py-2 text-white hover:bg-red-700"
-					onclick={clearSavedData}
+					onclick={clearAllData}
 				>
 					Clear
 				</button>

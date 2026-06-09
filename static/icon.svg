@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+	<rect width="512" height="512" rx="64" fill="#166534"/>
+
 	<defs>
-		<symbol id="spade" viewBox="-600 -600 1200 1200">
-			<path d="M0 -500C100 -250 355 -100 355 185A150 150 0 0 1 55 185A10 10 0 0 0 35 185C35 385 85 400 130 500L-130 500C-85 400 -35 385 -35 185A10 10 0 0 0 -55 185A150 150 0 0 1 -355 185C-355 -100 -100 -250 0 -500Z" fill="black"/>
-		</symbol>
+		<filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+			<feDropShadow dx="2" dy="4" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+		</filter>
 	</defs>
-	<rect width="480" height="480" x="16" y="16" rx="32" ry="32" fill="white" stroke="black" stroke-width="12"/>
-	<use href="#spade" width="320" height="320" x="96" y="96"/>
+
+	<g transform="translate(195, 270) rotate(-6)" filter="url(#shadow)">
+		<rect x="-62" y="-62" width="124" height="124" rx="14" fill="white"/>
+		<text x="0" y="28" font-family="Times New Roman, Georgia, serif" font-size="82" fill="#d32f2f" text-anchor="middle">♦</text>
+	</g>
+
+	<g transform="translate(317, 270) rotate(6)" filter="url(#shadow)">
+		<rect x="-62" y="-62" width="124" height="124" rx="14" fill="white"/>
+		<text x="0" y="28" font-family="Times New Roman, Georgia, serif" font-size="82" fill="#d32f2f" text-anchor="middle">♥</text>
+	</g>
+
+	<g transform="translate(256, 355) rotate(3)" filter="url(#shadow)">
+		<rect x="-62" y="-62" width="124" height="124" rx="14" fill="white"/>
+		<text x="0" y="28" font-family="Times New Roman, Georgia, serif" font-size="82" fill="#111" text-anchor="middle">♣</text>
+	</g>
+
+	<g transform="translate(256, 160) rotate(-8)" filter="url(#shadow)">
+		<rect x="-62" y="-62" width="124" height="124" rx="14" fill="white"/>
+		<text x="0" y="28" font-family="Times New Roman, Georgia, serif" font-size="82" fill="#111" text-anchor="middle">♠</text>
+	</g>
 </svg>

@@ -5,7 +5,7 @@ export interface Settings {
 }
 
 const defaults: Settings = {
-	onlyWinnable: false
+	onlyWinnable: true
 };
 
 export function getSettings(): Settings {
