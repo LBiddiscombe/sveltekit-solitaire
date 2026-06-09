@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import type { Card, PileRef } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
 import type { GameMode } from '$lib/stats';
+import type { Difficulty } from '$lib/game/solver/types';
 
 const STORAGE_KEY = 'solitaire-game';
 import {
@@ -60,6 +61,8 @@ class Game {
 
 	seed = $state<number | undefined>(undefined);
 
+	difficulty = $state<Difficulty | null>(null);
+
 	hint = $state<Hint | null>(null);
 
 	hintLoading = $state(false);
@@ -83,6 +86,7 @@ class Game {
 		this.clearSaved();
 		this.hasSaved = false;
 		this.winRecorded = false;
+		this.difficulty = null;
 		this.clearSolution();
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);

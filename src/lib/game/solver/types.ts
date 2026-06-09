@@ -7,6 +7,8 @@ export type SolverMove =
 
 export type SolvableStatus = 'solvable' | 'unsolvable' | 'undetermined';
 
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
 export interface SolverResult {
 	status: SolvableStatus;
 	nextMove: SolverMove | null;

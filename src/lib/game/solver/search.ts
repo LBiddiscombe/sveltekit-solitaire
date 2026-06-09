@@ -74,8 +74,13 @@ function dfsPath(
 	visited: Set<string>,
 	startTime: number,
 	timeoutMs: number,
-	context: { nodesVisited: number }
+	context: { nodesVisited: number },
+	depth: number = 0
 ): { status: SolvableStatus; moves: SolverMove[] } {
+	if (depth > MAX_DEPTH) {
+		return { status: 'undetermined', moves: [] };
+	}
+
 	const key = stateKey(state);
 	if (visited.has(key)) {
 		return { status: 'unsolvable', moves: [] };
@@ -94,7 +99,7 @@ function dfsPath(
 	const moves = generateMoves(state);
 	for (const move of moves) {
 		const nextState = applyMove(state, move);
-		const result = dfsPath(nextState, visited, startTime, timeoutMs, context);
+		const result = dfsPath(nextState, visited, startTime, timeoutMs, context, depth + 1);
 		if (result.status === 'solvable') {
 			return { status: 'solvable', moves: [move, ...result.moves] };
 		}

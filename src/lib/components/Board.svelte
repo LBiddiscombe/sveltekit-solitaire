@@ -186,7 +186,7 @@
 		}
 	});
 
-	async function startNewGame() {
+	async function startNewGame(skipStat = false) {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
@@ -194,7 +194,11 @@
 		debugPlaying = false;
 		animationHost.dispose();
 
-		if (!game.isWon && (game.stock.length > 0 || game.tableau.some((c) => c.length > 0))) {
+		if (
+			!skipStat &&
+			!game.isWon &&
+			(game.stock.length > 0 || game.tableau.some((c) => c.length > 0))
+		) {
 			const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
 			recordGame(game.mode, false, foundationCount);
 		}
@@ -208,6 +212,7 @@
 				const result = await tryFindWinnableDeal();
 				if (result) {
 					game.newGame(result.seed, mode);
+					game.difficulty = result.difficulty;
 				} else {
 					game.newGame(undefined, mode);
 				}
@@ -216,6 +221,7 @@
 			}
 		} else {
 			game.newGame(undefined, mode);
+			game.difficulty = null;
 		}
 
 		await animationHost.startDeal();
@@ -241,6 +247,11 @@
 		game.newGame(game.seed, mode);
 		await animationHost.startDeal();
 		persistAfterDeal();
+	}
+
+	async function handleSkipDeal() {
+		if (animationHost.busy || searchingWinnable) return;
+		await startNewGame(true);
 	}
 
 	async function handleNewGameClick() {
@@ -363,7 +374,7 @@
 				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-					onclick={startNewGame}
+					onclick={() => startNewGame()}
 				>
 					New Game
 				</button>
@@ -400,7 +411,7 @@
 					{/if}
 					<button
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={startNewGame}
+						onclick={() => startNewGame()}
 					>
 						New Game
 					</button>
@@ -436,7 +447,7 @@
 					</button>
 					<button
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={startNewGame}
+						onclick={() => startNewGame()}
 					>
 						New Game
 					</button>
@@ -517,6 +528,34 @@
 				</div>
 			</div>
 		{/if}
+		<div class="flex items-center justify-center gap-3">
+			{#if game.difficulty}
+				<span
+					class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold tracking-wide uppercase {game.difficulty ===
+					'easy'
+						? 'bg-emerald-500/20 text-emerald-400'
+						: game.difficulty === 'medium'
+							? 'bg-amber-500/20 text-amber-400'
+							: 'bg-red-500/20 text-red-400'}"
+				>
+					{game.difficulty}
+				</span>
+			{:else if game.mode === 'random'}
+				<span
+					class="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-white/60 uppercase"
+				>
+					Random
+				</span>
+			{/if}
+			{#if game.mode === 'winnable' && !game.canUndo && !searchingWinnable}
+				<button
+					class="inline-flex items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/70 transition-all hover:border-white/40 hover:text-white/90 active:scale-95"
+					onclick={handleSkipDeal}
+				>
+					Skip
+				</button>
+			{/if}
+		</div>
 		<div
 			class="flex flex-nowrap items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
 		>

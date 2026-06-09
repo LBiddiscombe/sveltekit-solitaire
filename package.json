@@ -14,6 +14,7 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
+		"calibrate:difficulty": "vitest run src/scripts/calibrate-difficulty.spec.ts",
 		"test:e2e": "playwright install && playwright test"
 	},
 	"devDependencies": {

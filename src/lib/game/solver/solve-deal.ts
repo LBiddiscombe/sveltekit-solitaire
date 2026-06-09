@@ -1,13 +1,24 @@
 import type { GameSnapshot } from '../snapshot';
 import { createDeck, shuffle, deal, mulberry32 } from '../deal';
-import type { SolverResult } from './types';
+import type { SolverResult, SolverPathResult, Difficulty } from './types';
 
 const DEFAULT_TIMEOUT_MS = 800;
 
 const DEFAULT_MAX_ATTEMPTS = 10;
 
+// Calibrated thresholds: bottom 25% ≤115, middle 50% 116-137, top 25% ≥138
+const EASY_MAX_MOVES = 115;
+const MEDIUM_MAX_MOVES = 137;
+
 export interface WinnableResult {
 	seed: number;
+	difficulty: Difficulty;
+}
+
+function computeDifficulty(moveCount: number): Difficulty {
+	if (moveCount <= EASY_MAX_MOVES) return 'easy';
+	if (moveCount <= MEDIUM_MAX_MOVES) return 'medium';
+	return 'hard';
 }
 
 export function searchInWorker(snapshot: GameSnapshot, timeoutMs: number): Promise<SolverResult> {
@@ -25,6 +36,24 @@ export function searchInWorker(snapshot: GameSnapshot, timeoutMs: number): Promi
 			worker.terminate();
 		};
 		worker.postMessage({ type: 'solve', snapshot, timeoutMs });
+	});
+}
+
+function searchPathInWorker(snapshot: GameSnapshot, timeoutMs: number): Promise<SolverPathResult> {
+	return new Promise((resolve, reject) => {
+		const worker = new Worker(new URL('./worker', import.meta.url), { type: 'module' });
+		worker.onmessage = (event: MessageEvent) => {
+			const response = event.data;
+			if (response.type === 'path-result') {
+				resolve(response.result as SolverPathResult);
+			}
+			worker.terminate();
+		};
+		worker.onerror = (err) => {
+			reject(err);
+			worker.terminate();
+		};
+		worker.postMessage({ type: 'solve-path', snapshot, timeoutMs });
 	});
 }
 
@@ -71,9 +100,9 @@ export async function tryFindWinnableDeal(
 		};
 
 		try {
-			const result = await searchInWorker(snapshot, timeoutPerSeed);
+			const result = await searchPathInWorker(snapshot, timeoutPerSeed);
 			if (result.status === 'solvable') {
-				return { seed };
+				return { seed, difficulty: computeDifficulty(result.moves.length) };
 			}
 		} catch {
 			/* worker error — skip this seed */
