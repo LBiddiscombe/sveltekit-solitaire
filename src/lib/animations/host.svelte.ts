@@ -149,12 +149,17 @@ export class AnimationHost {
 		imageUrls: string[],
 		cascadeFraction: number,
 		durationMs = 250,
-		easing = 'ease-out'
+		easing = 'ease-out',
+		opacity?: number
 	): Promise<void> {
 		const cardHeight = from.height;
 		const cardWidth = from.width;
 		const clone = this.createDragStackClone(imageUrls, cardWidth, cardHeight, cascadeFraction);
 		this.setPos(clone, from);
+
+		if (opacity !== undefined) {
+			clone.style.opacity = String(opacity);
+		}
 
 		return new Promise((resolve) => {
 			requestAnimationFrame(() => {
@@ -591,6 +596,31 @@ export class AnimationHost {
 		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
 		const cascadeFrac = this.pileCascade(hint.to);
 		const targetRect = this.cardTargetRect(dstRect, hint.to, dstCount, ch, cascadeFrac);
+
+		const pile = game.getPile(hint.from);
+		const count = pile.length - hint.fromCardIndex;
+
+		if (count > 1) {
+			const cw =
+				parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
+			const ch =
+				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+			const cardRect = { x: srcRect.x, y: srcRect.y, width: cw, height: ch };
+			const imageUrls: string[] = [];
+			for (let i = hint.fromCardIndex; i < pile.length; i++) {
+				imageUrls.push(cardImageUrl(pile[i]));
+			}
+			await this.animateStack(
+				cardRect,
+				targetRect,
+				imageUrls,
+				this.pileCascade(hint.from),
+				animation.hint.flightMs,
+				animation.hint.easing,
+				0.75
+			);
+			return;
+		}
 
 		return new Promise((resolve) => {
 			const w = this.buildStaticWrapper(cardImageUrl(hint.card));
