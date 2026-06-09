@@ -11,3 +11,8 @@ export interface SolverResult {
 	status: SolvableStatus;
 	nextMove: SolverMove | null;
 }
+
+export interface SolverPathResult {
+	status: SolvableStatus;
+	moves: SolverMove[];
+}

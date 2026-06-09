@@ -8,7 +8,8 @@ import {
 	canPlaceOnFoundation,
 	findMovesToFoundation,
 	findMovesToTableau,
-	canMoveFromTableau
+	canMoveFromTableau,
+	isProductiveTableauMove
 } from '$lib/game/rules';
 
 import {
@@ -16,6 +17,7 @@ import {
 	simulateStockCycle as simulateStockCycleOnSnapshot,
 	type GameSnapshot
 } from '$lib/game/snapshot';
+import type { SolverMove, SolvableStatus } from '$lib/game/solver/types';
 
 export function generateDealPlan(): Array<{ column: number; faceUp: boolean }> {
 	const plan: Array<{ column: number; faceUp: boolean }> = [];
@@ -37,6 +39,14 @@ class Game {
 
 	undoStack = $state<GameSnapshot[]>([]);
 	redoStack = $state<GameSnapshot[]>([]);
+
+	/** Debug: full solution path from the solver (only populated in debug mode) */
+	solutionMoves = $state<SolverMove[]>([]);
+	solutionIndex = $state(0);
+	solutionStack = $state<GameSnapshot[]>([]);
+	solutionStatus = $state<SolvableStatus | null>(null);
+	solvingInProgress = $state(false);
+	debugMode = $state(false);
 
 	dragging = $state<{
 		from: PileRef;
@@ -79,6 +89,7 @@ class Game {
 		this.clearSaved();
 		this.hasSaved = false;
 		this.clearStuck();
+		this.clearSolution();
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);
 		this.stock = deck;
@@ -95,6 +106,7 @@ class Game {
 
 	skipDeal() {
 		this.clearHint();
+		this.clearSolution();
 		const dealt = deal(this.stock);
 		this.stock = dealt.stock;
 		this.tableau = dealt.tableau;
@@ -111,6 +123,7 @@ class Game {
 	drawFromStock() {
 		this.clearStuck();
 		this.clearHint();
+		this.clearSolution();
 		if (this.stock.length === 0) {
 			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
 			this.waste = [];
@@ -200,6 +213,7 @@ class Game {
 
 		this.clearStuck();
 		this.clearHint();
+		this.clearSolution();
 		this.saveSnapshot();
 
 		const movedCards = sourcePile.splice(cardIndex, count);
@@ -262,6 +276,7 @@ class Game {
 	autoMove(ref: PileRef, cardIndex: number): boolean {
 		this.clearStuck();
 		this.clearHint();
+		this.clearSolution();
 		const pile = this.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return false;
 		const card = pile[cardIndex];
@@ -397,6 +412,7 @@ class Game {
 	undo() {
 		this.clearStuck();
 		this.clearHint();
+		this.clearSolution();
 		if (this.undoStack.length === 0) return;
 		this.redoStack.push(this.snapshot());
 		const snap = this.undoStack.pop()!;
@@ -411,6 +427,7 @@ class Game {
 	redo() {
 		this.clearStuck();
 		this.clearHint();
+		this.clearSolution();
 		if (this.redoStack.length === 0) return;
 		this.undoStack.push(this.snapshot());
 		const snap = this.redoStack.pop()!;
@@ -505,6 +522,82 @@ class Game {
 	findBestHint(): Hint | null {
 		return findBestHint(this);
 	}
+
+	loadSolution(moves: SolverMove[], status: SolvableStatus) {
+		this.solutionMoves = moves;
+		this.solutionStatus = status;
+		this.solutionIndex = 0;
+		this.solutionStack = [];
+		this.solvingInProgress = false;
+	}
+
+	clearSolution() {
+		this.solutionMoves = [];
+		this.solutionStatus = null;
+		this.solutionIndex = 0;
+		this.solutionStack = [];
+	}
+
+	applySolverMove(move: SolverMove) {
+		this.clearStuck();
+		this.clearHint();
+
+		if (move.kind === 'draw') {
+			const count = Math.min(3, this.stock.length);
+			const drawn = this.stock.splice(0, count);
+			for (const card of drawn) {
+				card.faceUp = true;
+				this.waste.push(card);
+			}
+		} else if (move.kind === 'recycle') {
+			this.stock = this.waste.map((c) => ({ ...c, faceUp: false }));
+			this.waste = [];
+		} else {
+			const { from, cardIndex, count, to } = move;
+			const sourcePile = this.getPile(from);
+			const targetPile = this.getPile(to);
+			const movedCards = sourcePile.splice(cardIndex, count);
+			targetPile.push(...movedCards);
+			if (from.kind === 'tableau' && sourcePile.length > 0) {
+				const newTop = sourcePile[sourcePile.length - 1];
+				if (!newTop.faceUp) {
+					newTop.faceUp = true;
+				}
+			}
+		}
+	}
+
+	stepForward(): SolverMove | null {
+		if (this.solutionIndex >= this.solutionMoves.length) return null;
+		const move = this.solutionMoves[this.solutionIndex];
+		this.solutionStack.push(this.snapshot());
+		this.applySolverMove(move);
+		this.solutionIndex++;
+		return move;
+	}
+
+	stepBackward(): boolean {
+		if (this.solutionIndex <= 0 || this.solutionStack.length === 0) return false;
+		this.solutionIndex--;
+		const snap = this.solutionStack.pop()!;
+		this.stock = snap.stock;
+		this.waste = snap.waste;
+		this.tableau = snap.tableau;
+		this.foundations = snap.foundations;
+		return true;
+	}
+
+	stepToStart() {
+		while (this.stepBackward()) {
+			/* repeat */
+		}
+	}
+
+	stepToEnd() {
+		while (this.stepForward() !== null) {
+			/* repeat */
+		}
+	}
 }
 
 export interface Hint {
@@ -512,15 +605,6 @@ export interface Hint {
 	fromCardIndex: number;
 	to: PileRef;
 	card: Card;
-}
-
-function isProductiveTableauMove(col: Card[], j: number, foundations: Card[][]): boolean {
-	if (j > 0) {
-		const underneath = col[j - 1];
-		if (!underneath.faceUp) return true;
-		return findMovesToFoundation(underneath, foundations) !== null;
-	}
-	return col[j].rank !== 'k';
 }
 
 function findBestHint(game: Game): Hint | null {

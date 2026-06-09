@@ -2,6 +2,7 @@ import { game, generateDealPlan, type Hint } from '$lib/state/game.svelte';
 import { animation } from '$lib/config/animation';
 import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 import type { PileRef, Suit, Rank } from '$lib/game/types';
+import type { SolverMove } from '$lib/game/solver/types';
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
@@ -451,6 +452,135 @@ export class AnimationHost {
 		this.busy = false;
 	}
 
+	async animateSolverMove(move: SolverMove): Promise<void> {
+		this.busy = true;
+
+		if (move.kind === 'draw') {
+			const stockEl = document.querySelector('[data-pile-kind="stock"]');
+			const wasteEl = document.querySelector('[data-pile-kind="waste"]');
+			if (!stockEl || !wasteEl) {
+				this.busy = false;
+				return;
+			}
+			const srcRect = stockEl.getBoundingClientRect();
+			const wasteRect = wasteEl.getBoundingClientRect();
+			const cw =
+				parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-width')) ||
+				240;
+			const ch =
+				parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) ||
+				200;
+			const count = Math.min(3, game.stock.length);
+			const drawnUrls: string[] = [];
+			for (let i = 0; i < count; i++) {
+				drawnUrls.push(cardImageUrl(game.stock[i]));
+			}
+			game.stepForward();
+			const newLength = game.waste.length;
+			const fanStart = Math.max(0, newLength - 3);
+			const promises: Promise<void>[] = [];
+			for (let i = 0; i < count; i++) {
+				const idx = newLength - count + i;
+				const xOffset = idx >= fanStart ? (idx - fanStart) * 0.5 * cw : 0;
+				const targetRect = {
+					x: wasteRect.x + xOffset,
+					y: wasteRect.y,
+					width: cw,
+					height: ch
+				};
+				const delayed =
+					animation.draw.staggerMs > 0 && i > 0
+						? new Promise<void>((r) => setTimeout(r, i * animation.draw.staggerMs))
+						: Promise.resolve();
+				promises.push(
+					delayed.then(() =>
+						this.animateFlip(
+							{ x: srcRect.x, y: srcRect.y, width: cw, height: ch },
+							targetRect,
+							drawnUrls[i],
+							{ durationMs: animation.draw.flightMs, easing: animation.draw.easing }
+						)
+					)
+				);
+			}
+			await Promise.all(promises);
+		} else if (move.kind === 'recycle') {
+			game.stepForward();
+		} else {
+			const { from, cardIndex, count, to } = move;
+			const srcRect = this.cardRectInPile(from, cardIndex);
+			if (!srcRect) {
+				game.stepForward();
+				this.busy = false;
+				return;
+			}
+			const dstRect = this.pileRect(to);
+			if (!dstRect) {
+				game.stepForward();
+				this.busy = false;
+				return;
+			}
+			const pile = game.getPile(from);
+			const ch =
+				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+			const dstPile = game.getPile(to);
+			const cascadeFrac = this.pileCascade(to);
+			const dstCount = dstPile.length;
+			let yOffset = 0;
+			if (to.kind === 'tableau' && dstPile.length > 0) {
+				for (let j = 0; j < dstCount; j++) {
+					yOffset += dstPile[j].faceUp ? cascadeFrac * ch : this.pileFacedownCascade(to) * ch;
+				}
+			}
+			const targetRect = {
+				x: dstRect.x,
+				y: dstRect.y + yOffset,
+				width: dstRect.width,
+				height: dstRect.height
+			};
+
+			if (count > 1) {
+				const imageUrls: string[] = [];
+				const map: Record<string, boolean> = {};
+				for (let i = cardIndex; i < pile.length; i++) {
+					const c = pile[i];
+					imageUrls.push(cardImageUrl(c));
+					map[`${c.suit}:${c.rank}`] = true;
+				}
+				this.animatingCardMap = map;
+				game.stepForward();
+				await this.animateStack(
+					srcRect,
+					targetRect,
+					imageUrls,
+					this.pileCascade(from),
+					animation.autoMove.flightMs,
+					animation.autoMove.easing
+				);
+				this.animatingCardMap = {};
+			} else {
+				const card = pile[cardIndex];
+				this.animatingCard = {
+					from,
+					to,
+					suit: card.suit,
+					rank: card.rank
+				};
+				game.stepForward();
+				await this.animateStatic(
+					srcRect,
+					targetRect,
+					cardImageUrl(card),
+					animation.autoMove.flightMs,
+					animation.autoMove.easing
+				);
+				this.animatingCard = null;
+			}
+		}
+
+		this.busy = false;
+	}
+
 	async animateDraw(): Promise<void> {
 		if (game.stock.length === 0) {
 			game.drawFromStock();
@@ -560,18 +690,18 @@ export class AnimationHost {
 		const pile = game.getPile(ref);
 		if (cardIndex < 0 || cardIndex >= pile.length) return null;
 
+		const cw = parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
+		const ch = parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
+
 		let xOffset = 0;
 		let yOffset = 0;
 		if (ref.kind === 'tableau') {
-			const ch =
-				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
 			const cascadeFrac = this.pileCascade(ref);
 			const facedownCascadeFrac = this.pileFacedownCascade(ref);
 			for (let j = 0; j < cardIndex; j++) {
 				yOffset += pile[j].faceUp ? cascadeFrac * ch : facedownCascadeFrac * ch;
 			}
 		} else if (ref.kind === 'waste') {
-			const cw = parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
 			const fanStart = Math.max(0, pile.length - 3);
 			xOffset = cardIndex >= fanStart ? (cardIndex - fanStart) * 0.5 * cw : 0;
 		}
@@ -579,8 +709,8 @@ export class AnimationHost {
 		return {
 			x: pileRect.x + xOffset,
 			y: pileRect.y + yOffset,
-			width: pileRect.width,
-			height: pileRect.height
+			width: cw,
+			height: ch
 		};
 	}
 
@@ -601,8 +731,7 @@ export class AnimationHost {
 		const count = pile.length - hint.fromCardIndex;
 
 		if (count > 1) {
-			const cw =
-				parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
+			const cw = parseFloat(document.documentElement.style.getPropertyValue('--card-width')) || 240;
 			const ch =
 				parseFloat(document.documentElement.style.getPropertyValue('--card-height')) || 200;
 			const cardRect = { x: srcRect.x, y: srcRect.y, width: cw, height: ch };

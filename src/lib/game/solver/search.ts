@@ -2,7 +2,7 @@ import type { GameSnapshot } from '../snapshot';
 import { isWon } from '../snapshot';
 import { generateMoves, applyMove } from './moves';
 import { stateKey } from './encode';
-import type { SolverResult } from './types';
+import type { SolverResult, SolverPathResult, SolverMove, SolvableStatus } from './types';
 
 const CHECK_INTERVAL = 1000;
 
@@ -43,4 +43,50 @@ export function search(initialState: GameSnapshot, timeoutMs: number): SolverRes
 	}
 
 	return dfs(initialState);
+}
+
+function dfsPath(
+	state: GameSnapshot,
+	visited: Set<string>,
+	startTime: number,
+	timeoutMs: number,
+	context: { nodesVisited: number }
+): { status: SolvableStatus; moves: SolverMove[] } {
+	const key = stateKey(state);
+	if (visited.has(key)) {
+		return { status: 'unsolvable', moves: [] };
+	}
+	visited.add(key);
+
+	if (isWon(state)) {
+		return { status: 'solvable', moves: [] };
+	}
+
+	context.nodesVisited++;
+	if (context.nodesVisited % CHECK_INTERVAL === 0 && Date.now() - startTime > timeoutMs) {
+		return { status: 'undetermined', moves: [] };
+	}
+
+	const moves = generateMoves(state);
+	for (const move of moves) {
+		const nextState = applyMove(state, move);
+		const result = dfsPath(nextState, visited, startTime, timeoutMs, context);
+		if (result.status === 'solvable') {
+			return { status: 'solvable', moves: [move, ...result.moves] };
+		}
+		if (result.status === 'undetermined') {
+			return { status: 'undetermined', moves: [] };
+		}
+	}
+
+	return { status: 'unsolvable', moves: [] };
+}
+
+export function searchPath(initialState: GameSnapshot, timeoutMs: number): SolverPathResult {
+	const visited = new Set<string>();
+	const startTime = Date.now();
+	const context = { nodesVisited: 0 };
+
+	const result = dfsPath(initialState, visited, startTime, timeoutMs, context);
+	return { status: result.status, moves: result.moves };
 }

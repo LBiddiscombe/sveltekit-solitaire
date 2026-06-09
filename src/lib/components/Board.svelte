@@ -5,6 +5,9 @@
 	import { preloadCardImages } from '$lib/game/card-images';
 	import { getSettings } from '$lib/settings';
 	import { tryFindWinnableDeal } from '$lib/game/solver/solve-deal';
+	import { searchPath } from '$lib/game/solver/search';
+	import type { SolverMove } from '$lib/game/solver/types';
+	import type { Card, Suit, Rank } from '$lib/game/types';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
@@ -14,6 +17,104 @@
 	let ready = $state(false);
 	let showNewGameConfirm = $state(false);
 	let searchingWinnable = $state(false);
+	let debugStepping = $state(false);
+
+	const SUIT_SYMBOLS: Record<Suit, string> = {
+		spades: '♠',
+		clubs: '♣',
+		diamonds: '♦',
+		hearts: '♥'
+	};
+
+	const RANK_LABELS: Record<Rank, string> = {
+		a: 'A',
+		'2': '2',
+		'3': '3',
+		'4': '4',
+		'5': '5',
+		'6': '6',
+		'7': '7',
+		'8': '8',
+		'9': '9',
+		'10': '10',
+		j: 'J',
+		q: 'Q',
+		k: 'K'
+	};
+
+	function cardLabel(card: Card): string {
+		return `${RANK_LABELS[card.rank]}${SUIT_SYMBOLS[card.suit]}`;
+	}
+
+	function formatMoveDescription(move: SolverMove, index: number, total: number): string {
+		const prefix = `${index}/${total}`;
+		if (move.kind === 'draw') return `${prefix} Draw`;
+		if (move.kind === 'recycle') return `${prefix} Recycle`;
+		const pile = game.getPile(move.from);
+		if (pile && move.cardIndex >= 0 && move.cardIndex < pile.length) {
+			const card = pile[move.cardIndex];
+			return `${prefix} ${cardLabel(card)} ${pileLabel(move.from)}→${pileLabel(move.to)}`;
+		}
+		return `${prefix} ${pileLabel(move.from)}→${pileLabel(move.to)}`;
+	}
+
+	function pileLabel(ref: { kind: string; index: number }): string {
+		if (ref.kind === 'tableau') return `T${ref.index + 1}`;
+		if (ref.kind === 'foundation') return `F${ref.index + 1}`;
+		if (ref.kind === 'waste') return 'Waste';
+		if (ref.kind === 'stock') return 'Stock';
+		return '';
+	}
+
+	async function runDebugSolver() {
+		if (!game.debugMode) return;
+		game.solvingInProgress = true;
+		debugStepping = false;
+		await new Promise((r) => setTimeout(r, 50));
+		const result = searchPath(
+			{
+				stock: game.stock,
+				waste: game.waste,
+				tableau: game.tableau,
+				foundations: game.foundations
+			},
+			2000
+		);
+		if (result.status === 'solvable' && result.moves.length > 0) {
+			game.loadSolution(result.moves, 'solvable');
+			debugStepping = true;
+		} else {
+			game.loadSolution([], result.status);
+		}
+		game.solvingInProgress = false;
+	}
+
+	async function handleStepForward() {
+		if (animationHost.busy || game.solutionIndex >= game.solutionMoves.length) return;
+		const move = game.solutionMoves[game.solutionIndex];
+		await animationHost.animateSolverMove(move);
+	}
+
+	async function handleStepBackward() {
+		if (animationHost.busy) return;
+		game.stepBackward();
+	}
+
+	function handleStepToStart() {
+		if (animationHost.busy) return;
+		game.stepToStart();
+	}
+
+	function handleStepToEnd() {
+		if (animationHost.busy) return;
+		const doSteps = async () => {
+			while (game.solutionIndex < game.solutionMoves.length) {
+				const move = game.solutionMoves[game.solutionIndex];
+				await animationHost.animateSolverMove(move);
+			}
+		};
+		doSteps();
+	}
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -35,6 +136,7 @@
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
+		debugStepping = false;
 		animationHost.dispose();
 
 		const settings = getSettings();
@@ -56,6 +158,10 @@
 
 		await animationHost.startDeal();
 		persistAfterDeal();
+
+		if (game.debugMode) {
+			await runDebugSolver();
+		}
 	}
 
 	async function retrySameDeal() {
@@ -78,6 +184,11 @@
 
 	onMount(() => {
 		preloadCardImages();
+		try {
+			game.debugMode = localStorage.getItem('solitaire-debug') === 'true';
+		} catch {
+			/* best-effort */
+		}
 		if (!game.hasSaved) {
 			startNewGame();
 		}
@@ -226,15 +337,75 @@
 	{/if}
 
 	<div
-		class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"
+		class="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2"
 		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
 	>
+		{#if game.debugMode}
+			<div
+				class="flex flex-col items-center gap-0.5 rounded-xl bg-black/30 px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm"
+			>
+				{#if game.solvingInProgress}
+					<span class="text-xs text-white/70">Solving...</span>
+				{:else if game.solutionStatus === 'solvable' && debugStepping && game.solutionMoves.length > 0}
+					<span class="text-center text-xs text-white/80">
+						{formatMoveDescription(
+							game.solutionMoves[game.solutionIndex],
+							game.solutionIndex + 1,
+							game.solutionMoves.length
+						)}
+					</span>
+				{:else if game.solutionStatus === 'unsolvable'}
+					<span class="text-xs text-red-400">Not solvable</span>
+				{:else if game.solutionStatus === 'undetermined'}
+					<span class="text-xs text-amber-400">Solver timed out</span>
+				{:else}
+					<span class="text-xs text-white/50">No solution loaded</span>
+				{/if}
+				<div class="flex flex-nowrap items-center gap-2">
+					<span class="text-xs font-semibold tracking-wider text-cyan-300">DEBUG</span>
+					{#if game.solutionStatus === 'solvable' && debugStepping && game.solutionMoves.length > 0}
+						<div class="h-4 w-px bg-white/20"></div>
+						<button
+							class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
+							disabled={game.solutionIndex === 0}
+							onclick={handleStepToStart}
+							title="Go to start">⏮</button
+						>
+						<button
+							class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
+							disabled={game.solutionIndex === 0}
+							onclick={handleStepBackward}
+							title="Step backward">◀</button
+						>
+						<button
+							class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
+							disabled={game.solutionIndex >= game.solutionMoves.length}
+							onclick={handleStepForward}
+							title="Step forward">▶</button
+						>
+						<button
+							class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
+							disabled={game.solutionIndex >= game.solutionMoves.length}
+							onclick={handleStepToEnd}
+							title="Play through to end">⏭</button
+						>
+					{:else if !game.solvingInProgress && game.solutionStatus !== 'solvable'}
+						<button
+							class="rounded px-1.5 py-0.5 text-xs text-cyan-300 transition-all hover:bg-white/10"
+							onclick={runDebugSolver}
+						>
+							Find
+						</button>
+					{/if}
+				</div>
+			</div>
+		{/if}
 		<div
 			class="flex flex-nowrap items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
 		>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 hover:text-amber-300 active:scale-95 disabled:opacity-30"
-				disabled={solving || searchingWinnable}
+				disabled={solving || searchingWinnable || debugStepping}
 				onclick={async () => {
 					if (animationHost.busy) return;
 					const hint = game.findBestHint();
@@ -262,7 +433,7 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
-				disabled={!game.canUndo || solving || searchingWinnable}
+				disabled={!game.canUndo || solving || searchingWinnable || debugStepping}
 				onclick={() => game.undo()}
 			>
 				↩ Undo
@@ -270,7 +441,7 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
-				disabled={!game.canRedo || solving || searchingWinnable}
+				disabled={!game.canRedo || solving || searchingWinnable || debugStepping}
 				onclick={() => game.redo()}
 			>
 				↪ Redo
@@ -278,7 +449,7 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
-				disabled={solving || searchingWinnable}
+				disabled={solving || searchingWinnable || debugStepping}
 				onclick={handleNewGameClick}
 			>
 				+ New Game

@@ -53,3 +53,12 @@ export function findMovesToTableau(moving: Card, tableaus: Card[][]): number | n
 	}
 	return null;
 }
+
+export function isProductiveTableauMove(col: Card[], j: number, foundations: Card[][]): boolean {
+	if (j > 0) {
+		const underneath = col[j - 1];
+		if (!underneath.faceUp) return true;
+		return findMovesToFoundation(underneath, foundations) !== null;
+	}
+	return col[j].rank !== 'k';
+}

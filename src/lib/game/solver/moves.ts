@@ -1,7 +1,12 @@
 import type { Card, PileRef } from '../types';
 import type { GameSnapshot } from '../snapshot';
 import { deepClone } from '../snapshot';
-import { canPlaceOnTableau, canMoveFromTableau, findMovesToFoundation } from '../rules';
+import {
+	canPlaceOnTableau,
+	canMoveFromTableau,
+	findMovesToFoundation,
+	isProductiveTableauMove
+} from '../rules';
 import type { SolverMove } from './types';
 
 function getPile(state: GameSnapshot, ref: PileRef): Card[] {
@@ -65,12 +70,13 @@ export function generateMoves(state: GameSnapshot): SolverMove[] {
 			if (!canMoveFromTableau(card, cardsBelow)) continue;
 
 			const revealsFaceDown = j > 0 && !col[j - 1].faceUp;
+			const productive = revealsFaceDown || isProductiveTableauMove(col, j, state.foundations);
 
 			for (let k = 0; k < 7; k++) {
 				if (k === i) continue;
 				const target =
 					state.tableau[k].length > 0 ? state.tableau[k][state.tableau[k].length - 1] : null;
-				if (canPlaceOnTableau(card, target)) {
+				if (canPlaceOnTableau(card, target) && productive) {
 					const move: SolverMove = {
 						kind: 'move',
 						from: { kind: 'tableau', index: i },

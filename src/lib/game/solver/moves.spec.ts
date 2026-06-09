@@ -64,10 +64,10 @@ describe('generateMoves', () => {
 		expect(found.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it('returns tableau to tableau for a valid run', () => {
+	it('returns tableau to tableau for a revealing move', () => {
 		const state = emptySnapshot();
-		state.tableau[0] = [card('k', 'hearts', true)];
-		state.tableau[1] = [];
+		state.tableau[0] = [card('3', 'hearts', false), card('4', 'spades', true)];
+		state.tableau[1] = [card('5', 'hearts', true)];
 		const moves = generateMoves(state);
 		const found = moves.filter(
 			(m) => m.kind === 'move' && m.from.kind === 'tableau' && m.to.kind === 'tableau'
