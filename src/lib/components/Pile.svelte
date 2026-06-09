@@ -5,7 +5,6 @@
 	import { dragController } from '$lib/actions/dragdrop';
 	import { cardImageUrl, cardBackUrl } from '$lib/game/card-images';
 	import { animation } from '$lib/config/animation';
-
 	let {
 		cards,
 		kind,
@@ -34,21 +33,47 @@
 		return i >= d.cardIndex && i < d.cardIndex + d.count;
 	}
 
-	function isAnimatingToHere(card: Card): boolean {
-		if (animationHost.animatingCardMap[`${card.suit}:${card.rank}`]) return true;
-		const a = animationHost.animatingCard;
-		if (!a) return false;
-		return (
-			a.to.kind === kind && a.to.index === index && a.suit === card.suit && a.rank === card.rank
-		);
-	}
-
 	function marginStyle(i: number): string {
 		if (i === 0) return '0';
 		const prev = cards[i - 1];
 		const c = prev.faceUp ? cascade : facedownCascade;
 		return `calc(var(--card-height) * ${c} - var(--card-height))`;
 	}
+
+	$effect(() => {
+		const a = animationHost.animatingCard;
+		void Object.keys(animationHost.animatingCardMap).length;
+		void cards.length;
+
+		const pileEl = document.querySelector(`[data-pile-kind="${kind}"][data-pile-index="${index}"]`);
+		if (!pileEl) return;
+
+		const cardEls = pileEl.querySelectorAll<HTMLElement>('[data-card-index]');
+		for (const el of cardEls) {
+			const cardIndex = parseInt(el.dataset.cardIndex!, 10);
+			const card = cards[cardIndex];
+			if (!card) continue;
+
+			const key = `${card.suit}:${card.rank}`;
+			const isHidden =
+				!!animationHost.animatingCardMap[key] ||
+				(a !== null &&
+					((a.from.kind === kind &&
+						a.from.index === index &&
+						a.suit === card.suit &&
+						a.rank === card.rank) ||
+						(a.to.kind === kind &&
+							a.to.index === index &&
+							a.suit === card.suit &&
+							a.rank === card.rank)));
+
+			if (isHidden) {
+				el.style.setProperty('opacity', '0', 'important');
+			} else {
+				el.style.removeProperty('opacity');
+			}
+		}
+	});
 </script>
 
 <div
@@ -72,7 +97,7 @@
 				style:width="var(--card-width)"
 				style:margin-top={marginStyle(i)}
 				style:z-index={i + 1}
-				style:opacity={isAnimatingToHere(card) ? '0' : isBeingDragged(i) ? '0.3' : '1'}
+				style:opacity={isBeingDragged(i) ? '0.3' : undefined}
 				class:cursor-grab={card.faceUp}
 				use:dragController.draggable={ref}
 				data-card-index={i}

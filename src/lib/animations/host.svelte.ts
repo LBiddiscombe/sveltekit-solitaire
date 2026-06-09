@@ -548,7 +548,6 @@ export class AnimationHost {
 					map[`${c.suit}:${c.rank}`] = true;
 				}
 				this.animatingCardMap = map;
-				game.stepForward();
 				await this.animateStack(
 					srcRect,
 					targetRect,
@@ -557,6 +556,7 @@ export class AnimationHost {
 					animation.autoMove.flightMs,
 					animation.autoMove.easing
 				);
+				game.stepForward();
 				this.animatingCardMap = {};
 			} else {
 				const card = pile[cardIndex];
@@ -566,7 +566,6 @@ export class AnimationHost {
 					suit: card.suit,
 					rank: card.rank
 				};
-				game.stepForward();
 				await this.animateStatic(
 					srcRect,
 					targetRect,
@@ -574,6 +573,7 @@ export class AnimationHost {
 					animation.autoMove.flightMs,
 					animation.autoMove.easing
 				);
+				game.stepForward();
 				this.animatingCard = null;
 			}
 		}

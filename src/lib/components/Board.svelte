@@ -18,6 +18,7 @@
 	let showNewGameConfirm = $state(false);
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
+	let debugPlaying = $state(false);
 
 	const SUIT_SYMBOLS: Record<Suit, string> = {
 		spades: '♠',
@@ -89,31 +90,37 @@
 		game.solvingInProgress = false;
 	}
 
+	function stopAutoplay() {
+		debugPlaying = false;
+	}
+
 	async function handleStepForward() {
 		if (animationHost.busy || game.solutionIndex >= game.solutionMoves.length) return;
+		stopAutoplay();
 		const move = game.solutionMoves[game.solutionIndex];
 		await animationHost.animateSolverMove(move);
 	}
 
 	async function handleStepBackward() {
 		if (animationHost.busy) return;
+		stopAutoplay();
 		game.stepBackward();
 	}
 
 	function handleStepToStart() {
 		if (animationHost.busy) return;
+		stopAutoplay();
 		game.stepToStart();
 	}
 
-	function handleStepToEnd() {
-		if (animationHost.busy) return;
-		const doSteps = async () => {
-			while (game.solutionIndex < game.solutionMoves.length) {
-				const move = game.solutionMoves[game.solutionIndex];
-				await animationHost.animateSolverMove(move);
-			}
-		};
-		doSteps();
+	async function handleStepToEnd() {
+		if (animationHost.busy || debugPlaying) return;
+		debugPlaying = true;
+		while (game.solutionIndex < game.solutionMoves.length && debugPlaying) {
+			const move = game.solutionMoves[game.solutionIndex];
+			await animationHost.animateSolverMove(move);
+		}
+		debugPlaying = false;
 	}
 
 	function updateCardSize() {
@@ -137,6 +144,7 @@
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
 		debugStepping = false;
+		debugPlaying = false;
 		animationHost.dispose();
 
 		const settings = getSettings();
@@ -383,12 +391,20 @@
 							onclick={handleStepForward}
 							title="Step forward">▶</button
 						>
-						<button
-							class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
-							disabled={game.solutionIndex >= game.solutionMoves.length}
-							onclick={handleStepToEnd}
-							title="Play through to end">⏭</button
-						>
+						{#if debugPlaying}
+							<button
+								class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-amber-300"
+								onclick={stopAutoplay}
+								title="Pause autoplay">⏸</button
+							>
+						{:else}
+							<button
+								class="rounded px-1.5 py-0.5 text-xs text-white/70 transition-all hover:bg-white/10 hover:text-white disabled:opacity-20"
+								disabled={game.solutionIndex >= game.solutionMoves.length}
+								onclick={handleStepToEnd}
+								title="Play through to end">⏭</button
+							>
+						{/if}
 					{:else if !game.solvingInProgress && game.solutionStatus !== 'solvable'}
 						<button
 							class="rounded px-1.5 py-0.5 text-xs text-cyan-300 transition-all hover:bg-white/10"
