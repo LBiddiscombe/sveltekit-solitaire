@@ -58,6 +58,8 @@ class Game {
 
 	stuckOverride = $state(false);
 
+	private persistTimer: ReturnType<typeof setTimeout> | null = null;
+
 	isImmediatelyStuck = $derived(
 		this.stock.length === 0 && this.waste.length === 0 && !hasImmediateMove(this)
 	);
@@ -442,11 +444,7 @@ class Game {
 		});
 	}
 
-	persist() {
-		if (!browser || this.isWon) {
-			if (this.isWon) this.clearSaved();
-			return;
-		}
+	private writePersist() {
 		try {
 			localStorage.setItem(
 				STORAGE_KEY,
@@ -455,8 +453,6 @@ class Game {
 					waste: this.waste,
 					tableau: this.tableau,
 					foundations: this.foundations,
-					undoStack: this.undoStack,
-					redoStack: this.redoStack,
 					seed: this.seed
 				})
 			);
@@ -465,8 +461,32 @@ class Game {
 		}
 	}
 
+	persist() {
+		if (!browser || this.isWon) {
+			if (this.isWon) this.clearSaved();
+			return;
+		}
+		if (this.persistTimer !== null) clearTimeout(this.persistTimer);
+		this.persistTimer = setTimeout(() => {
+			this.persistTimer = null;
+			this.writePersist();
+		}, 5_000);
+	}
+
+	flushPersist() {
+		if (this.persistTimer !== null) {
+			clearTimeout(this.persistTimer);
+			this.persistTimer = null;
+			this.writePersist();
+		}
+	}
+
 	private clearSaved() {
 		if (!browser) return;
+		if (this.persistTimer !== null) {
+			clearTimeout(this.persistTimer);
+			this.persistTimer = null;
+		}
 		try {
 			localStorage.removeItem(STORAGE_KEY);
 		} catch {
@@ -644,12 +664,13 @@ if (browser) {
 			game.waste = data.waste;
 			game.tableau = data.tableau;
 			game.foundations = data.foundations;
-			game.undoStack = data.undoStack;
-			game.redoStack = data.redoStack;
+			game.undoStack = data.undoStack ?? [];
+			game.redoStack = data.redoStack ?? [];
 			game.seed = data.seed;
 			game.hasSaved = true;
 		}
 	} catch {
 		/* best-effort */
 	}
+	window.addEventListener('beforeunload', () => game.flushPersist());
 }
