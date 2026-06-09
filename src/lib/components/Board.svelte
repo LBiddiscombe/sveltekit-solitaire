@@ -3,6 +3,8 @@
 	import { game, persistAfterDeal, simulateStockCycle } from '$lib/state/game.svelte';
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
+	import { getSettings } from '$lib/settings';
+	import { tryFindWinnableDeal } from '$lib/game/solver/solve-deal';
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
@@ -11,6 +13,7 @@
 	let solving = $state(false);
 	let ready = $state(false);
 	let showNewGameConfirm = $state(false);
+	let searchingWinnable = $state(false);
 
 	function updateCardSize() {
 		if (!boardEl) return;
@@ -30,9 +33,36 @@
 	});
 
 	async function startNewGame() {
+		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
 		animationHost.dispose();
-		game.newGame();
+
+		const settings = getSettings();
+		if (settings.onlyWinnable) {
+			searchingWinnable = true;
+			try {
+				const result = await tryFindWinnableDeal();
+				if (result) {
+					game.newGame(result.seed);
+				} else {
+					game.newGame();
+				}
+			} finally {
+				searchingWinnable = false;
+			}
+		} else {
+			game.newGame();
+		}
+
+		await animationHost.startDeal();
+		persistAfterDeal();
+	}
+
+	async function retrySameDeal() {
+		if (animationHost.busy || game.seed === undefined) return;
+		showNewGameConfirm = false;
+		animationHost.dispose();
+		game.newGame(game.seed);
 		await animationHost.startDeal();
 		persistAfterDeal();
 	}
@@ -140,6 +170,14 @@
 					>
 						Keep Trying
 					</button>
+					{#if game.seed !== undefined}
+						<button
+							class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
+							onclick={retrySameDeal}
+						>
+							Retry Same Deal
+						</button>
+					{/if}
 					<button
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
 						onclick={startNewGame}
@@ -147,6 +185,17 @@
 						New Game
 					</button>
 				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if searchingWinnable}
+		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+				<h2 class="mb-4 text-3xl font-bold">Finding Winnable Deal</h2>
+				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+					Solving the deal to check if it's winnable&hellip;
+				</p>
 			</div>
 		</div>
 	{/if}
@@ -185,7 +234,7 @@
 		>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 hover:text-amber-300 active:scale-95 disabled:opacity-30"
-				disabled={solving}
+				disabled={solving || searchingWinnable}
 				onclick={async () => {
 					if (animationHost.busy) return;
 					const hint = game.findBestHint();
@@ -213,7 +262,7 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
-				disabled={!game.canUndo || solving}
+				disabled={!game.canUndo || solving || searchingWinnable}
 				onclick={() => game.undo()}
 			>
 				↩ Undo
@@ -221,14 +270,15 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
-				disabled={!game.canRedo || solving}
+				disabled={!game.canRedo || solving || searchingWinnable}
 				onclick={() => game.redo()}
 			>
 				↪ Redo
 			</button>
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
-				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95"
+				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				disabled={solving || searchingWinnable}
 				onclick={handleNewGameClick}
 			>
 				+ New Game

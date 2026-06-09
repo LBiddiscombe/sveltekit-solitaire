@@ -1,11 +1,44 @@
 <script lang="ts">
 	import { resolveRoute } from '$app/paths';
+	import { getSettings, updateSettings } from '$lib/settings';
+
+	let settings = $state(getSettings());
+
+	function toggleOnlyWinnable() {
+		const next = !settings.onlyWinnable;
+		settings = updateSettings({ onlyWinnable: next });
+	}
 </script>
 
 <div class="flex min-h-[calc(100dvh-12rem)] items-center justify-center px-4">
 	<div class="w-full max-w-md rounded-xl bg-white/5 p-8 backdrop-blur-sm">
 		<h1 class="text-2xl font-bold text-white/90">Settings</h1>
-		<p class="mt-4 leading-relaxed text-white/50">Game settings coming soon.</p>
+		<div class="mt-6 space-y-6">
+			<div class="flex items-center justify-between">
+				<div>
+					<p class="font-medium text-white/90">Only winnable games</p>
+					<p class="mt-0.5 text-sm leading-relaxed text-white/50">
+						When starting a new game, automatically discard deals the solver can't prove is
+						solvable. May briefly delay the deal while the solver runs.
+					</p>
+				</div>
+				<button
+					role="switch"
+					aria-checked={settings.onlyWinnable}
+					aria-label="Only winnable games toggle"
+					onclick={toggleOnlyWinnable}
+					class="relative ml-4 inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 focus:outline-none {settings.onlyWinnable
+						? 'bg-emerald-500'
+						: 'bg-white/20'}"
+				>
+					<span
+						class="inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform {settings.onlyWinnable
+							? 'translate-x-5'
+							: 'translate-x-0'}"
+					></span>
+				</button>
+			</div>
+		</div>
 	</div>
 </div>
 

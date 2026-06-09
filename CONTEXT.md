@@ -14,7 +14,7 @@ _Avoid_: Discard pile, talon
 The 7-column layout of interleaved face-down and face-up cards, where cards are built in descending rank and alternating color.
 
 **Foundation**:
-The 4 piles in the top-left where each suit is built ascending from Ace to King.
+The 4 piles in the top-left where each suit is built ascending from Ace to King. Cards may be moved off a foundation back onto the tableau (standard Klondike variant — not blocked in this game).
 
 **Cascade**:
 The visible vertical offset between consecutive cards in a pile, expressed as a fraction of card height. Face-down cards use a smaller cascade (0.08) than face-up cards (0.15) — just enough to show the card's existence or rank without wasting space.
