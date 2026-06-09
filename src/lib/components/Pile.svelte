@@ -35,6 +35,7 @@
 	}
 
 	function isAnimatingToHere(card: Card): boolean {
+		if (animationHost.animatingCardMap[`${card.suit}:${card.rank}`]) return true;
 		const a = animationHost.animatingCard;
 		if (!a) return false;
 		return (

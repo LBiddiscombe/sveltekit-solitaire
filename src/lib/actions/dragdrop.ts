@@ -78,9 +78,27 @@ export class DragController {
 					hasMoved = true;
 					this.sourceRect = this.cardRect(cardEl);
 
-					const imgEl = cardEl.querySelector('img');
-					const imgUrl = imgEl?.src ?? '';
-					this.clone = animationHost.createDragClone(imgUrl, rect.width, rect.height);
+					if (this.game.dragging && this.game.dragging.count > 1) {
+						const pileEl = cardEl.closest('[data-pile-kind]')!;
+						const allCardEls = pileEl.querySelectorAll<HTMLElement>('[data-card-index]');
+						const urls: string[] = [];
+						for (const c of allCardEls) {
+							const idx = parseInt(c.dataset.cardIndex!, 10);
+							if (idx >= this.game.dragging.cardIndex) {
+								urls.push(c.querySelector('img')?.src ?? '');
+							}
+						}
+						const ch =
+							parseFloat(
+								getComputedStyle(document.documentElement).getPropertyValue('--card-height')
+							) || 200;
+						const cascadeFrac = parseFloat(pileEl.getAttribute('data-pile-cascade') ?? '0.25');
+						this.clone = animationHost.createDragStackClone(urls, rect.width, ch, cascadeFrac);
+					} else {
+						const imgEl = cardEl.querySelector('img');
+						const imgUrl = imgEl?.src ?? '';
+						this.clone = animationHost.createDragClone(imgUrl, rect.width, rect.height);
+					}
 					this.clone.style.left = `${e.clientX - rect.width / 2}px`;
 					this.clone.style.top = `${e.clientY - rect.height / 2}px`;
 					this.clone.style.transform = 'rotate(3deg)';
@@ -101,24 +119,31 @@ export class DragController {
 					if (srcRect && game.canAutoMove(ref, cardIndex)) {
 						await animationHost.animateAutoMove(ref, cardIndex, srcRect);
 					} else if (srcRect) {
-						const imgEl = cardEl.querySelector('img');
-						if (imgEl) {
-							const a = animation.shake.amplitudePx;
-							imgEl.animate(
-								[
-									{ transform: 'translateX(0)' },
-									{ transform: `translateX(-${a}px)` },
-									{ transform: `translateX(${a}px)` },
-									{ transform: `translateX(-${a}px)` },
-									{ transform: `translateX(${a}px)` },
-									{ transform: `translateX(-${Math.round(a * 0.75)}px)` },
-									{ transform: 'translateX(0)' }
-								],
-								{
-									duration: animation.shake.durationMs,
-									easing: animation.shake.easing
+						const a = animation.shake.amplitudePx;
+						const keyframes = [
+							{ transform: 'translateX(0)' },
+							{ transform: `translateX(-${a}px)` },
+							{ transform: `translateX(${a}px)` },
+							{ transform: `translateX(-${a}px)` },
+							{ transform: `translateX(${a}px)` },
+							{ transform: `translateX(-${Math.round(a * 0.75)}px)` },
+							{ transform: 'translateX(0)' }
+						];
+						const opts = {
+							duration: animation.shake.durationMs,
+							easing: animation.shake.easing
+						};
+						const pileEl = cardEl.closest('[data-pile-kind]');
+						if (pileEl) {
+							const siblings = pileEl.querySelectorAll<HTMLElement>('[data-card-index]');
+							for (const sib of siblings) {
+								const idx = parseInt(sib.dataset.cardIndex!, 10);
+								if (idx >= cardIndex) {
+									sib.querySelector('img')?.animate(keyframes, opts);
 								}
-							);
+							}
+						} else {
+							cardEl.querySelector('img')?.animate(keyframes, opts);
 						}
 					}
 				} else {

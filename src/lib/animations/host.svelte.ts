@@ -16,6 +16,7 @@ export class AnimationHost {
 	private clones: HTMLDivElement[] = [];
 
 	animatingCard = $state<AnimatingCard | null>(null);
+	animatingCardMap = $state<Record<string, boolean>>({});
 	drawAnimation = $state<{ count: number } | null>(null);
 	busy = $state(false);
 
@@ -142,6 +143,35 @@ export class AnimationHost {
 		});
 	}
 
+	private animateStack(
+		from: Rect,
+		to: Rect,
+		imageUrls: string[],
+		cascadeFraction: number,
+		durationMs = 250,
+		easing = 'ease-out'
+	): Promise<void> {
+		const cardHeight = from.height;
+		const cardWidth = from.width;
+		const clone = this.createDragStackClone(imageUrls, cardWidth, cardHeight, cascadeFraction);
+		this.setPos(clone, from);
+
+		return new Promise((resolve) => {
+			requestAnimationFrame(() => {
+				clone.style.transition = `left ${durationMs}ms ${easing}, top ${durationMs}ms ${easing}`;
+				this.setPos(clone, to);
+
+				const onEnd = () => {
+					clone.removeEventListener('transitionend', onEnd);
+					this.cleanup(clone);
+					resolve();
+				};
+				clone.addEventListener('transitionend', onEnd);
+				this.fallbackTimer(clone, durationMs, resolve, onEnd);
+			});
+		});
+	}
+
 	flyBack(
 		clone: HTMLElement,
 		target: Rect,
@@ -199,6 +229,33 @@ export class AnimationHost {
 		return w;
 	}
 
+	createDragStackClone(
+		imageUrls: string[],
+		cardWidth: number,
+		cardHeight: number,
+		cascadeFraction: number
+	): HTMLDivElement {
+		const height = cardHeight + (imageUrls.length - 1) * cascadeFraction * cardHeight;
+		const w = this.createWrapper();
+		w.style.width = `${cardWidth}px`;
+		w.style.height = `${height}px`;
+
+		for (let i = 0; i < imageUrls.length; i++) {
+			const img = document.createElement('img');
+			img.src = imageUrls[i];
+			img.style.position = 'absolute';
+			img.style.left = '0';
+			img.style.top = `${i * cascadeFraction * cardHeight}px`;
+			img.style.width = '100%';
+			img.style.height = `${cardHeight}px`;
+			w.appendChild(img);
+		}
+
+		document.body.appendChild(w);
+		this.clones.push(w);
+		return w;
+	}
+
 	removeClone(clone: HTMLElement) {
 		this.cleanup(clone);
 	}
@@ -214,13 +271,6 @@ export class AnimationHost {
 		const card = pile[cardIndex];
 		if (!card) return;
 
-		this.animatingCard = {
-			from: ref,
-			to: dest,
-			suit: card.suit,
-			rank: card.rank
-		};
-
 		const dstPile = game.getPile(dest);
 		const dstCount = dstPile?.length ?? 0;
 
@@ -228,17 +278,52 @@ export class AnimationHost {
 		const cascadeFrac = this.pileCascade(dest);
 		const targetRect = this.cardTargetRect(dstRect, dest, dstCount, ch, cascadeFrac);
 
-		game.beginMove();
-		game.autoMove(ref, cardIndex);
+		const count = pile.length - cardIndex;
 
-		await this.animateStatic(
-			srcRect,
-			targetRect,
-			cardImageUrl(card),
-			animation.autoMove.flightMs,
-			animation.autoMove.easing
-		);
-		this.animatingCard = null;
+		if (count > 1) {
+			const imageUrls: string[] = [];
+			const map: Record<string, boolean> = {};
+			for (let i = cardIndex; i < pile.length; i++) {
+				const c = pile[i];
+				imageUrls.push(cardImageUrl(c));
+				map[`${c.suit}:${c.rank}`] = true;
+			}
+
+			game.beginMove();
+			game.autoMove(ref, cardIndex);
+
+			this.animatingCardMap = map;
+
+			await this.animateStack(
+				srcRect,
+				targetRect,
+				imageUrls,
+				this.pileCascade(ref),
+				animation.autoMove.flightMs,
+				animation.autoMove.easing
+			);
+
+			this.animatingCardMap = {};
+		} else {
+			game.beginMove();
+			game.autoMove(ref, cardIndex);
+
+			this.animatingCard = {
+				from: ref,
+				to: dest,
+				suit: card.suit,
+				rank: card.rank
+			};
+
+			await this.animateStatic(
+				srcRect,
+				targetRect,
+				cardImageUrl(card),
+				animation.autoMove.flightMs,
+				animation.autoMove.easing
+			);
+			this.animatingCard = null;
+		}
 	}
 
 	async startDeal(): Promise<void> {
