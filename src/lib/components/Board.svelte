@@ -5,7 +5,7 @@
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
 	import { getSettings } from '$lib/settings';
-	import { tryFindWinnableDeal, searchInWorker } from '$lib/game/solver/solve-deal';
+	import { tryFindWinnableDeal, hintSearch } from '$lib/game/solver/solve-deal';
 	import { searchPath } from '$lib/game/solver/search';
 	import { generateMoves } from '$lib/game/solver/moves';
 	import type { SolverMove } from '$lib/game/solver/types';
@@ -238,7 +238,7 @@
 		} catch {
 			/* best-effort */
 		}
-		if (!game.hasSaved) {
+		if (!localStorage.getItem('solitaire-game')) {
 			startNewGame();
 		}
 	});
@@ -251,7 +251,7 @@
 		showStuckDialog = false;
 
 		try {
-			const result = await searchInWorker(snapshotGame(), 2000);
+			const result = await hintSearch(snapshotGame(), 500);
 
 			if (result.nextMove) {
 				const hint = solverMoveToHint(result.nextMove);
@@ -270,6 +270,9 @@
 				stuckStatus = result.status;
 				showStuckDialog = true;
 			}
+		} catch {
+			stuckStatus = 'undetermined';
+			showStuckDialog = true;
 		} finally {
 			game.hintLoading = false;
 		}

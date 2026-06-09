@@ -3,10 +3,16 @@
 	import { getSettings, updateSettings } from '$lib/settings';
 
 	let settings = $state(getSettings());
+	let showClearConfirm = $state(false);
 
 	function toggleOnlyWinnable() {
 		const next = !settings.onlyWinnable;
 		settings = updateSettings({ onlyWinnable: next });
+	}
+
+	function clearSavedData() {
+		localStorage.removeItem('solitaire-game');
+		showClearConfirm = false;
 	}
 </script>
 
@@ -39,8 +45,49 @@
 				</button>
 			</div>
 		</div>
+		<hr class="border-white/10" />
+		<div class="flex items-center justify-between">
+			<div>
+				<p class="font-medium text-white/90">Clear saved game</p>
+				<p class="mt-0.5 text-sm leading-relaxed text-white/50">
+					Delete the saved game from your browser. Your current game will be lost on the next
+					page load.
+				</p>
+			</div>
+			<button
+				onclick={() => (showClearConfirm = true)}
+				class="ml-4 shrink-0 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-700 active:scale-95"
+			>
+				Clear
+			</button>
+		</div>
 	</div>
 </div>
+
+{#if showClearConfirm}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+			<h2 class="mb-4 text-3xl font-bold">Clear Saved Game?</h2>
+			<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+				Your current game progress will be lost. This cannot be undone.
+			</p>
+			<div class="flex justify-center gap-3">
+				<button
+					class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+					onclick={() => (showClearConfirm = false)}
+				>
+					Cancel
+				</button>
+				<button
+					class="rounded-lg bg-red-600 px-6 py-2 text-white hover:bg-red-700"
+					onclick={clearSavedData}
+				>
+					Clear
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <div
 	class="fixed bottom-4 left-1/2 z-30 -translate-x-1/2"

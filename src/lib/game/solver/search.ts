@@ -5,6 +5,7 @@ import { stateKey } from './encode';
 import type { SolverResult, SolverPathResult, SolverMove, SolvableStatus } from './types';
 
 const CHECK_INTERVAL = 1000;
+const MAX_DEPTH = 500;
 
 export function search(initialState: GameSnapshot, timeoutMs: number): SolverResult {
 	const visited = new Set<string>();
@@ -15,7 +16,7 @@ export function search(initialState: GameSnapshot, timeoutMs: number): SolverRes
 
 	for (const move of moves) {
 		const nextState = applyMove(initialState, move);
-		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited);
+		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited, 1);
 		if (result.status === 'solvable') {
 			return { status: 'solvable', nextMove: move };
 		}
@@ -33,8 +34,13 @@ function dfs(
 	visited: Set<string>,
 	startTime: number,
 	timeoutMs: number,
-	nodesVisited: number
+	nodesVisited: number,
+	depth: number
 ): { status: SolvableStatus; nextMove: null; nodesVisited: number } {
+	if (depth > MAX_DEPTH) {
+		return { status: 'undetermined', nextMove: null, nodesVisited };
+	}
+
 	const key = stateKey(state);
 	if (visited.has(key)) {
 		return { status: 'unsolvable', nextMove: null, nodesVisited };
@@ -53,7 +59,7 @@ function dfs(
 	const childMoves = generateMoves(state);
 	for (const move of childMoves) {
 		const nextState = applyMove(state, move);
-		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited);
+		const result = dfs(nextState, visited, startTime, timeoutMs, nodesVisited, depth + 1);
 		if (result.status === 'solvable' || result.status === 'undetermined') {
 			return result;
 		}

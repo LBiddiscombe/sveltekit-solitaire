@@ -28,6 +28,32 @@ export function searchInWorker(snapshot: GameSnapshot, timeoutMs: number): Promi
 	});
 }
 
+let hintWorker: Worker | null = null;
+
+export function hintSearch(snapshot: GameSnapshot, timeoutMs: number): Promise<SolverResult> {
+	if (!hintWorker) {
+		hintWorker = new Worker(new URL('./worker', import.meta.url), { type: 'module' });
+	}
+
+	return new Promise((resolve, reject) => {
+		const onMessage = (event: MessageEvent) => {
+			const response = event.data;
+			if (response.type === 'result') {
+				hintWorker!.removeEventListener('message', onMessage);
+				resolve(response.result as SolverResult);
+			}
+		};
+		hintWorker!.addEventListener('message', onMessage);
+		hintWorker!.onerror = (err) => {
+			hintWorker!.removeEventListener('message', onMessage);
+			hintWorker!.terminate();
+			hintWorker = null;
+			reject(err);
+		};
+		hintWorker!.postMessage({ type: 'solve', snapshot, timeoutMs });
+	});
+}
+
 export async function tryFindWinnableDeal(
 	timeoutPerSeed = DEFAULT_TIMEOUT_MS,
 	maxAttempts = DEFAULT_MAX_ATTEMPTS
@@ -44,9 +70,13 @@ export async function tryFindWinnableDeal(
 			foundations: [[], [], [], []]
 		};
 
-		const result = await searchInWorker(snapshot, timeoutPerSeed);
-		if (result.status === 'solvable') {
-			return { seed };
+		try {
+			const result = await searchInWorker(snapshot, timeoutPerSeed);
+			if (result.status === 'solvable') {
+				return { seed };
+			}
+		} catch {
+			/* worker error — skip this seed */
 		}
 	}
 
