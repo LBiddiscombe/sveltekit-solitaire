@@ -31,12 +31,20 @@
 		avgMoves: 0,
 		avgCompletion: 0
 	});
+	let showClearConfirm = $state(false);
 
 	function refresh() {
 		lifetimeRandom = getLifetimeStats('random');
 		recentRandom = getRecentStats('random');
 		lifetimeWinnable = getLifetimeStats('winnable');
 		recentWinnable = getRecentStats('winnable');
+	}
+
+	function clearAllData() {
+		localStorage.removeItem('solitaire-game');
+		localStorage.removeItem('solitaire-stats');
+		showClearConfirm = false;
+		refresh();
 	}
 
 	$effect(refresh);
@@ -137,6 +145,16 @@
 		</div>
 	</div>
 
+	<div class="mt-10 flex flex-col items-center gap-4">
+		<button
+			onclick={() => (showClearConfirm = true)}
+			class="rounded-lg bg-red-600/80 px-5 py-2 text-sm font-medium text-white/80 transition-all hover:bg-red-600 hover:text-white active:scale-95"
+		>
+			Clear all data
+		</button>
+		<p class="text-xs text-white/30">Removes all statistics and clears any saved game</p>
+	</div>
+
 	<div class="mt-6 flex justify-center">
 		<div
 			class="inline-flex items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
@@ -150,3 +168,29 @@
 		</div>
 	</div>
 </div>
+
+{#if showClearConfirm}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+			<h2 class="mb-4 text-3xl font-bold">Clear All Data?</h2>
+			<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+				Your current game progress and all statistics will be permanently deleted. You'll start with
+				a fresh deal on the next game.
+			</p>
+			<div class="flex justify-center gap-3">
+				<button
+					class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+					onclick={() => (showClearConfirm = false)}
+				>
+					Cancel
+				</button>
+				<button
+					class="rounded-lg bg-red-600 px-6 py-2 text-white hover:bg-red-700"
+					onclick={clearAllData}
+				>
+					Clear
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
