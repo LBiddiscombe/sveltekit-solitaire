@@ -29,6 +29,7 @@ export const localStorageAdapter: StorageAdapter = {
 };
 
 export function createInMemoryAdapter(): StorageAdapter {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive test helper
 	const store = new Map<string, string>();
 	return {
 		getItem(key) {

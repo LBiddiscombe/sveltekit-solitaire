@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { game, persistAfterDeal } from '$lib/state/game.svelte';
 	import { gameStore } from '$lib/state/game-store.svelte';
 	import { getStreaks, recordGame } from '$lib/stats';
@@ -54,6 +54,9 @@
 		q: 'Q',
 		k: 'K'
 	};
+
+	const toolBtnClass =
+		'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30';
 
 	function cardLabel(card: Card): string {
 		return `${RANK_LABELS[card.rank]}${SUIT_SYMBOLS[card.suit]}`;
@@ -186,6 +189,7 @@
 
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
+		celebrationDone = false;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
 		debugStepping = false;
@@ -311,13 +315,116 @@
 			animationHost.dispose();
 		};
 	});
-
-	$effect(() => {
-		if (!game.isWon) {
-			celebrationDone = false;
-		}
-	});
 </script>
+
+{#snippet modal(title: string, children: Snippet)}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
+			<h2 class="mb-4 text-3xl font-bold">{title}</h2>
+			{@render children()}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet winContent()}
+	{@const streaks = getStreaks()}
+	{@const nextStreak = streaks.currentStreak + 1}
+	{@const bestStreak = Math.max(streaks.bestStreak, nextStreak)}
+	<div class="mb-6 flex items-center justify-center gap-4 text-sm">
+		<div class="rounded-lg bg-gray-100 px-3 py-1.5">
+			<span class="text-gray-500">Streak </span>
+			<span class="font-bold text-emerald-600">{nextStreak}</span>
+		</div>
+		<div class="rounded-lg bg-gray-100 px-3 py-1.5">
+			<span class="text-gray-500">Best </span>
+			<span class="font-bold text-emerald-600">{bestStreak}</span>
+		</div>
+	</div>
+	<div class="flex items-center justify-center gap-3">
+		<button
+			class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
+			onclick={() => {
+				recordGame(game.mode, true, 52, game.moveCount);
+				startNewGame();
+			}}
+		>
+			New Game
+		</button>
+		<button
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+			onclick={() => goto(resolve('/stats'))}
+		>
+			View Stats
+		</button>
+	</div>
+{/snippet}
+
+{#snippet stuckContent()}
+	<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+		{#if stuckStatus === 'unsolvable'}
+			The solver has determined this deal is unwinnable from this position.
+		{:else}
+			The solver couldn't find a next move within its time limit. If you spot a workaround, go for
+			it!
+		{/if}
+	</p>
+	<div class="flex justify-center gap-3">
+		<button
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+			onclick={() => (showStuckDialog = false)}
+		>
+			Keep Trying
+		</button>
+		{#if game.seed !== undefined}
+			<button
+				class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
+				onclick={retrySameDeal}
+			>
+				Retry Same Deal
+			</button>
+		{/if}
+		<button
+			class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
+			onclick={() => {
+				const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
+				recordGame(game.mode, false, fc, game.moveCount);
+				startNewGame();
+			}}
+		>
+			New Game
+		</button>
+	</div>
+{/snippet}
+
+{#snippet searchingContent()}
+	<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+		Solving the deal to check if it's winnable&hellip;
+	</p>
+{/snippet}
+
+{#snippet newGameContent()}
+	<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+		There are still moves available. Any progress in this game will be lost.
+	</p>
+	<div class="flex justify-center gap-3">
+		<button
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+			onclick={() => (showNewGameConfirm = false)}
+		>
+			Cancel
+		</button>
+		<button
+			class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
+			onclick={() => {
+				const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
+				recordGame(game.mode, false, fc, game.moveCount);
+				startNewGame();
+			}}
+		>
+			New Game
+		</button>
+	</div>
+{/snippet}
 
 <svelte:window onresize={() => updateCardSize()} />
 
@@ -368,125 +475,19 @@
 	{/if}
 
 	{#if game.isWon && celebrationDone}
-		{@const streaks = getStreaks()}
-		{@const nextStreak = streaks.currentStreak + 1}
-		{@const bestStreak = Math.max(streaks.bestStreak, nextStreak)}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
-
-				<div class="mb-6 flex items-center justify-center gap-4 text-sm">
-					<div class="rounded-lg bg-gray-100 px-3 py-1.5">
-						<span class="text-gray-500">Streak </span>
-						<span class="font-bold text-emerald-600">{nextStreak}</span>
-					</div>
-					<div class="rounded-lg bg-gray-100 px-3 py-1.5">
-						<span class="text-gray-500">Best </span>
-						<span class="font-bold text-emerald-600">{bestStreak}</span>
-					</div>
-				</div>
-
-				<div class="flex items-center justify-center gap-3">
-					<button
-						class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-						onclick={() => {
-							recordGame(game.mode, true, 52, game.moveCount);
-							startNewGame();
-						}}
-					>
-						New Game
-					</button>
-					<button
-						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
-						onclick={() => goto(resolve('/stats'))}
-					>
-						View Stats
-					</button>
-				</div>
-			</div>
-		</div>
+		{@render modal('You Won!', winContent)}
 	{/if}
 
 	{#if showStuckDialog}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-				<h2 class="mb-4 text-3xl font-bold">No Moves Found</h2>
-				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-					{#if stuckStatus === 'unsolvable'}
-						The solver has determined this deal is unwinnable from this position.
-					{:else}
-						The solver couldn't find a next move within its time limit. If you spot a workaround, go
-						for it!
-					{/if}
-				</p>
-				<div class="flex justify-center gap-3">
-					<button
-						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
-						onclick={() => (showStuckDialog = false)}
-					>
-						Keep Trying
-					</button>
-					{#if game.seed !== undefined}
-						<button
-							class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
-							onclick={retrySameDeal}
-						>
-							Retry Same Deal
-						</button>
-					{/if}
-					<button
-						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={() => {
-							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
-							recordGame(game.mode, false, fc, game.moveCount);
-							startNewGame();
-						}}
-					>
-						New Game
-					</button>
-				</div>
-			</div>
-		</div>
+		{@render modal('No Moves Found', stuckContent)}
 	{/if}
 
 	{#if searchingWinnable}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-				<h2 class="mb-4 text-3xl font-bold">Finding Winnable Deal</h2>
-				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-					Solving the deal to check if it's winnable&hellip;
-				</p>
-			</div>
-		</div>
+		{@render modal('Finding Winnable Deal', searchingContent)}
 	{/if}
 
 	{#if showNewGameConfirm}
-		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
-				<h2 class="mb-4 text-3xl font-bold">Start a New Game?</h2>
-				<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-					There are still moves available. Any progress in this game will be lost.
-				</p>
-				<div class="flex justify-center gap-3">
-					<button
-						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
-						onclick={() => (showNewGameConfirm = false)}
-					>
-						Cancel
-					</button>
-					<button
-						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={() => {
-							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
-							recordGame(game.mode, false, fc, game.moveCount);
-							startNewGame();
-						}}
-					>
-						New Game
-					</button>
-				</div>
-			</div>
-		</div>
+		{@render modal('Start a New Game?', newGameContent)}
 	{/if}
 
 	<div
@@ -593,7 +594,7 @@
 			class="flex flex-nowrap items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
 		>
 			<button
-				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 hover:text-amber-300 active:scale-95 disabled:opacity-30"
+				class={`${toolBtnClass} hover:text-amber-300`}
 				disabled={solving || searchingWinnable || debugStepping || game.hintLoading}
 				onclick={handleHintClick}
 			>
@@ -602,7 +603,7 @@
 			</button>
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
-				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				class={toolBtnClass}
 				disabled={!game.canUndo || solving || searchingWinnable || debugStepping}
 				onclick={() => game.undo()}
 			>
@@ -610,7 +611,7 @@
 			</button>
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
-				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				class={toolBtnClass}
 				disabled={!game.canRedo || solving || searchingWinnable || debugStepping}
 				onclick={() => game.redo()}
 			>
@@ -618,7 +619,7 @@
 			</button>
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
-				class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap text-white/80 transition-all hover:bg-white/10 active:scale-95 disabled:opacity-30"
+				class={toolBtnClass}
 				disabled={solving || searchingWinnable || debugStepping}
 				onclick={handleNewGameClick}
 			>

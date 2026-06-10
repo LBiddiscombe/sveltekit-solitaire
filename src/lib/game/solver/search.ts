@@ -26,7 +26,7 @@ export function search(initialState: GameSnapshot, timeoutMs: number): SolverRes
 		nodesVisited = result.nodesVisited;
 	}
 
-	return { status: 'unsolvable', nextMove: null };
+	return { status: 'unsolvable', nextMove: moves.length > 0 ? moves[0] : null };
 }
 
 function dfs(
