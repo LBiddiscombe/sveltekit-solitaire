@@ -2,7 +2,9 @@
 	import { onMount } from 'svelte';
 	import { game, persistAfterDeal } from '$lib/state/game.svelte';
 	import { gameStore } from '$lib/state/game-store.svelte';
-	import { recordGame } from '$lib/stats';
+	import { getStreaks, recordGame } from '$lib/stats';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	import { animationHost } from '$lib/animations/host.svelte';
 	import { preloadCardImages } from '$lib/game/card-images';
@@ -17,10 +19,12 @@
 	import Stock from './Stock.svelte';
 	import Waste from './Waste.svelte';
 	import Pile from './Pile.svelte';
+	import WinCelebration from './WinCelebration.svelte';
 
 	let boardEl: HTMLDivElement;
 	let solving = $state(false);
 	let ready = $state(false);
+	let celebrationDone = $state(false);
 	let showNewGameConfirm = $state(false);
 	let showStuckDialog = $state(false);
 	let stuckStatus = $state<string | null>(null);
@@ -307,6 +311,12 @@
 			animationHost.dispose();
 		};
 	});
+
+	$effect(() => {
+		if (!game.isWon) {
+			celebrationDone = false;
+		}
+	});
 </script>
 
 <svelte:window onresize={() => updateCardSize()} />
@@ -353,19 +363,46 @@
 		{/each}
 	</div>
 
-	{#if game.isWon}
+	{#if game.isWon && !celebrationDone}
+		<WinCelebration ondone={() => (celebrationDone = true)} />
+	{/if}
+
+	{#if game.isWon && celebrationDone}
+		{@const streaks = getStreaks()}
+		{@const nextStreak = streaks.currentStreak + 1}
+		{@const bestStreak = Math.max(streaks.bestStreak, nextStreak)}
 		<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
 			<div class="rounded-xl bg-white p-8 text-center shadow-2xl">
 				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
-				<button
-					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-					onclick={() => {
-						recordGame(game.mode, true, 52, game.moveCount);
-						startNewGame();
-					}}
-				>
-					New Game
-				</button>
+
+				<div class="mb-6 flex items-center justify-center gap-4 text-sm">
+					<div class="rounded-lg bg-gray-100 px-3 py-1.5">
+						<span class="text-gray-500">Streak </span>
+						<span class="font-bold text-emerald-600">{nextStreak}</span>
+					</div>
+					<div class="rounded-lg bg-gray-100 px-3 py-1.5">
+						<span class="text-gray-500">Best </span>
+						<span class="font-bold text-emerald-600">{bestStreak}</span>
+					</div>
+				</div>
+
+				<div class="flex items-center justify-center gap-3">
+					<button
+						class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
+						onclick={() => {
+							recordGame(game.mode, true, 52, game.moveCount);
+							startNewGame();
+						}}
+					>
+						New Game
+					</button>
+					<button
+						class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
+						onclick={() => goto(resolve('/stats'))}
+					>
+						View Stats
+					</button>
+				</div>
 			</div>
 		</div>
 	{/if}

@@ -22,11 +22,20 @@ interface ModeStats {
 export interface StatsData {
 	random: ModeStats;
 	winnable: ModeStats;
+	currentStreak: number;
+	bestStreak: number;
 }
 
 const defaultModeStats = (): ModeStats => ({
 	lifetime: { gamesPlayed: 0, gamesWon: 0, totalCardsToFoundation: 0, totalMoves: 0 },
 	recent: []
+});
+
+const defaultStats = (): StatsData => ({
+	random: defaultModeStats(),
+	winnable: defaultModeStats(),
+	currentStreak: 0,
+	bestStreak: 0
 });
 
 function read(): StatsData {
@@ -35,6 +44,8 @@ function read(): StatsData {
 		if (raw) {
 			const data = JSON.parse(raw);
 			return {
+				...defaultStats(),
+				...data,
 				random: { ...defaultModeStats(), ...data.random },
 				winnable: { ...defaultModeStats(), ...data.winnable }
 			} satisfies StatsData;
@@ -42,7 +53,7 @@ function read(): StatsData {
 	} catch {
 		/* best-effort */
 	}
-	return { random: defaultModeStats(), winnable: defaultModeStats() };
+	return defaultStats();
 }
 
 function write(data: StatsData) {
@@ -76,7 +87,19 @@ export function recordGame(
 		modeStats.recent.shift();
 	}
 
+	if (won) {
+		data.currentStreak++;
+		if (data.currentStreak > data.bestStreak) data.bestStreak = data.currentStreak;
+	} else {
+		data.currentStreak = 0;
+	}
+
 	write(data);
+}
+
+export function getStreaks(): { currentStreak: number; bestStreak: number } {
+	const data = read();
+	return { currentStreak: data.currentStreak, bestStreak: data.bestStreak };
 }
 
 export interface ComputedStats {
