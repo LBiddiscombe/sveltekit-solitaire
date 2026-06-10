@@ -179,30 +179,13 @@
 		}
 	});
 
-	$effect(() => {
-		if (game.isWon && !game.winRecorded) {
-			game.winRecorded = true;
-			recordGame(game.mode, true, 52);
-		}
-	});
-
-	async function startNewGame(skipStat = false) {
+	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
 		debugStepping = false;
 		debugPlaying = false;
 		animationHost.dispose();
-
-		if (
-			!skipStat &&
-			!game.isWon &&
-			(game.stock.length > 0 || game.tableau.some((c) => c.length > 0))
-		) {
-			const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
-			recordGame(game.mode, false, foundationCount);
-		}
-		game.winRecorded = false;
 
 		const settings = getSettings();
 		const mode = settings.onlyWinnable ? 'winnable' : 'random';
@@ -240,7 +223,6 @@
 
 		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
 		recordGame(game.mode, false, foundationCount);
-		game.winRecorded = false;
 
 		const settings = getSettings();
 		const mode = settings.onlyWinnable ? 'winnable' : 'random';
@@ -251,7 +233,7 @@
 
 	async function handleSkipDeal() {
 		if (animationHost.busy || searchingWinnable) return;
-		await startNewGame(true);
+		await startNewGame();
 	}
 
 	async function handleNewGameClick() {
@@ -260,6 +242,8 @@
 			showNewGameConfirm = true;
 			return;
 		}
+		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
+		recordGame(game.mode, false, foundationCount);
 		await startNewGame();
 	}
 
@@ -374,7 +358,10 @@
 				<h2 class="mb-4 text-3xl font-bold">You Won!</h2>
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
-					onclick={() => startNewGame()}
+					onclick={() => {
+						recordGame(game.mode, true, 52);
+						startNewGame();
+					}}
 				>
 					New Game
 				</button>
@@ -411,7 +398,11 @@
 					{/if}
 					<button
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={() => startNewGame()}
+						onclick={() => {
+							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
+							recordGame(game.mode, false, fc);
+							startNewGame();
+						}}
 					>
 						New Game
 					</button>
@@ -447,7 +438,11 @@
 					</button>
 					<button
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
-						onclick={() => startNewGame()}
+						onclick={() => {
+							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
+							recordGame(game.mode, false, fc);
+							startNewGame();
+						}}
 					>
 						New Game
 					</button>

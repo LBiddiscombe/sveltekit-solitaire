@@ -69,8 +69,6 @@ class Game {
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
-	winRecorded = $state(false);
-
 	private persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 	canSolve = $derived(
@@ -85,7 +83,6 @@ class Game {
 	newGame(seed?: number, mode?: GameMode) {
 		this.clearSaved();
 		this.hasSaved = false;
-		this.winRecorded = false;
 		this.difficulty = null;
 		this.clearSolution();
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
