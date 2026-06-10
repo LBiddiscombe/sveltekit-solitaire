@@ -62,6 +62,9 @@ class Game {
 
 	difficulty = $state<Difficulty | null>(null);
 
+	/** Has this specific won game been recorded to stats? */
+	winRecorded = $state(false);
+
 	hint = $state<Hint | null>(null);
 
 	hintLoading = $state(false);
@@ -95,6 +98,7 @@ class Game {
 		this.dragging = null;
 		this.lastAutoMove = null;
 		this.hint = null;
+		this.winRecorded = false;
 	}
 
 	skipDeal() {

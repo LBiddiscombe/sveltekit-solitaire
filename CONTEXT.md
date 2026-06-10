@@ -50,3 +50,27 @@ A monotonic counter of player-initiated move actions (draw, drag-drop, auto-move
 
 **Difficulty Persistence**:
 The `difficulty` badge (`easy`/`medium`/`hard` from the solver) is persisted in the saved game state alongside `moveCount`, `seed`, and `mode`. On reload, the badge is restored so the player still sees the difficulty label. Old saves without these fields default to `null` / `0`. This is the canonical fix: the Skip button was originally gated on `!canUndo`, which broke on reload because the undo stack is intentionally not persisted.
+
+## Stats Tracking Contract
+
+**Where stats live**: `src/lib/stats.ts` — client-side only, persisted to `localStorage` under key `solitaire-stats`.
+
+**Data model**: `StatsData` has two mode-buckets (`random`/`winnable`), each with `lifetime` (aggregate counters) and `recent` (last 20 `GameResult` entries). Streaks (`currentStreak`, `bestStreak`) are cross-mode — a win in either mode extends the streak.
+
+**When `recordGame()` is called**:
+
+| Trigger                                                   | `won`   | `cardsToFoundation`      | `totalMoves`                 |
+| --------------------------------------------------------- | ------- | ------------------------ | ---------------------------- |
+| Win modal first appears (`game.isWon && celebrationDone`) | `true`  | `52`                     | `game.moveCount` at win time |
+| Stuck/Hopeless dialog → Retry Same Deal                   | `false` | current foundation count | `game.moveCount`             |
+| Stuck/Hopeless dialog → New Game                          | `false` | current foundation count | `game.moveCount`             |
+| New Game confirm dialog → Confirm                         | `false` | current foundation count | `game.moveCount`             |
+
+**Guarantees**:
+
+- **Win is recorded at modal-open time** (reactive `$effect` in `Board.svelte`), not on button click. This ensures navigating to `/stats` from the win modal reflects the actual win, and navigating back does not lose it.
+- **`game.winRecorded` flag** on the `Game` singleton prevents double-recording across component re-mounts (navigating away and back). Reset in `game.newGame()`.
+- **Win modal "New Game" button** is guarded by `winBusy` to prevent double-click inflation.
+- **Toolbar "+ New Game"** is disabled when `game.isWon` — prevents the celebration canvas (`pointer-events: none`) from passing clicks through to record a false loss.
+- **Skip deal** (available when `moveCount === 0` in winnable mode) does NOT call `recordGame()` — the player hasn't invested any moves.
+- **`moveCount` is monotonic** (never decremented by undo/redo) and recorded per-game as `totalMoves` in the stats `GameResult`, aggregated to `avgMoves` on the stats page.

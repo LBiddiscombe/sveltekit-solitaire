@@ -31,6 +31,7 @@
 	let hintToken = 0;
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
+	let winBusy = $state(false);
 	let debugPlaying = $state(false);
 	const SUIT_SYMBOLS: Record<Suit, string> = {
 		spades: '♠',
@@ -187,9 +188,18 @@
 		}
 	});
 
+	// Record win when the win modal first appears (guarded against double-fire)
+	$effect(() => {
+		if (game.isWon && celebrationDone && !game.winRecorded) {
+			recordGame(game.mode, true, 52, game.moveCount);
+			game.winRecorded = true;
+		}
+	});
+
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
 		celebrationDone = false;
+		winBusy = false;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
 		showHopelessDialog = false;
@@ -347,9 +357,10 @@
 	</div>
 	<div class="flex items-center justify-center gap-3">
 		<button
-			class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
+			class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700 disabled:opacity-50"
+			disabled={winBusy}
 			onclick={() => {
-				recordGame(game.mode, true, 52, game.moveCount);
+				winBusy = true;
 				startNewGame();
 			}}
 		>
@@ -667,7 +678,7 @@
 			<div class="h-5 w-px bg-white/10"></div>
 			<button
 				class={toolBtnClass}
-				disabled={solving || searchingWinnable || debugStepping}
+				disabled={game.isWon || solving || searchingWinnable || debugStepping}
 				onclick={handleNewGameClick}
 			>
 				+ New Game
