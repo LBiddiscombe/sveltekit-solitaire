@@ -597,6 +597,7 @@ export const game = new Game();
 
 export function persistAfterDeal() {
 	game.persist();
+	game.flushPersist();
 }
 
 if (browser) {
