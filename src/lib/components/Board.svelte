@@ -222,7 +222,7 @@
 		animationHost.dispose();
 
 		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
-		recordGame(game.mode, false, foundationCount);
+		recordGame(game.mode, false, foundationCount, game.moveCount);
 
 		const settings = getSettings();
 		const mode = settings.onlyWinnable ? 'winnable' : 'random';
@@ -243,7 +243,7 @@
 			return;
 		}
 		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
-		recordGame(game.mode, false, foundationCount);
+		recordGame(game.mode, false, foundationCount, game.moveCount);
 		await startNewGame();
 	}
 
@@ -359,7 +359,7 @@
 				<button
 					class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
 					onclick={() => {
-						recordGame(game.mode, true, 52);
+						recordGame(game.mode, true, 52, game.moveCount);
 						startNewGame();
 					}}
 				>
@@ -400,7 +400,7 @@
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
 						onclick={() => {
 							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
-							recordGame(game.mode, false, fc);
+							recordGame(game.mode, false, fc, game.moveCount);
 							startNewGame();
 						}}
 					>
@@ -440,7 +440,7 @@
 						class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
 						onclick={() => {
 							const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
-							recordGame(game.mode, false, fc);
+							recordGame(game.mode, false, fc, game.moveCount);
 							startNewGame();
 						}}
 					>
@@ -452,7 +452,7 @@
 	{/if}
 
 	<div
-		class="fixed bottom-8 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2"
+		class="fixed bottom-8 left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-4"
 		style="touch-action: auto; -webkit-user-select: auto; user-select: auto;"
 	>
 		{#if game.debugMode}
@@ -542,7 +542,7 @@
 					Random
 				</span>
 			{/if}
-			{#if game.mode === 'winnable' && !game.canUndo && !searchingWinnable}
+			{#if game.mode === 'winnable' && game.moveCount === 0 && !searchingWinnable}
 				<button
 					class="inline-flex items-center gap-1 rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/70 transition-all hover:border-white/40 hover:text-white/90 active:scale-95"
 					onclick={handleSkipDeal}

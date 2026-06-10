@@ -37,3 +37,9 @@ _Avoid_: Dead, lost, game over (too final — the overlay is dismissable)
 **SimulateStockCycle**:
 A deep-clone simulation that runs up to 3 full stock recycles (draw → try each card against foundation then tableau → recycle) to determine whether any card can ever be placed. Used as the authoritative "game is truly dead" check: if it returns false, no amount of stock cycling will produce a move. Used to gate the New-Game confirmation dialog.
 _Avoid_: hasImmediateMove (surface-level only, doesn't simulate cycling)
+
+**Move Count (moveCount)**:
+A monotonic counter of player-initiated move actions (draw, drag-drop, auto-move) within a single deal. Incremented in `drawFromStock()`, `endDrag()`, and `autoMove()`. Never decremented — not affected by undo/redo. Persisted with game state and restored on reload. Used to determine Skip-button eligibility (`moveCount === 0` shows Skip in winnable mode). Also recorded per-game in lifetime stats as `totalMoves` and displayed as `avgMoves` on the stats page.
+
+**Difficulty Persistence**:
+The `difficulty` badge (`easy`/`medium`/`hard` from the solver) is persisted in the saved game state alongside `moveCount`, `seed`, and `mode`. On reload, the badge is restored so the player still sees the difficulty label. Old saves without these fields default to `null` / `0`. This is the canonical fix: the Skip button was originally gated on `!canUndo`, which broke on reload because the undo stack is intentionally not persisted.

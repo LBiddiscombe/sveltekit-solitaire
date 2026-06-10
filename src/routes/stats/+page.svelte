@@ -7,24 +7,28 @@
 		gamesPlayed: 0,
 		gamesWon: 0,
 		winRate: 0,
+		avgMoves: 0,
 		avgCompletion: 0
 	});
 	let recentRandom = $state<ComputedStats>({
 		gamesPlayed: 0,
 		gamesWon: 0,
 		winRate: 0,
+		avgMoves: 0,
 		avgCompletion: 0
 	});
 	let lifetimeWinnable = $state<ComputedStats>({
 		gamesPlayed: 0,
 		gamesWon: 0,
 		winRate: 0,
+		avgMoves: 0,
 		avgCompletion: 0
 	});
 	let recentWinnable = $state<ComputedStats>({
 		gamesPlayed: 0,
 		gamesWon: 0,
 		winRate: 0,
+		avgMoves: 0,
 		avgCompletion: 0
 	});
 
@@ -76,6 +80,11 @@
 						<td class="py-2 font-medium text-white/90">{pct(recentWinnable.winRate)}</td>
 					</tr>
 					<tr>
+						<td class="py-2 text-white/50">Avg Moves</td>
+						<td class="py-2 font-medium text-white/90">{lifetimeWinnable.avgMoves.toFixed(1)}</td>
+						<td class="py-2 font-medium text-white/90">{recentWinnable.avgMoves.toFixed(1)}</td>
+					</tr>
+					<tr>
 						<td class="py-2 text-white/50">Avg Completion</td>
 						<td class="py-2 font-medium text-white/90">{pct(lifetimeWinnable.avgCompletion)}</td>
 						<td class="py-2 font-medium text-white/90">{pct(recentWinnable.avgCompletion)}</td>
@@ -112,6 +121,11 @@
 						<td class="py-2 text-white/50">Win %</td>
 						<td class="py-2 font-medium text-white/90">{pct(lifetimeRandom.winRate)}</td>
 						<td class="py-2 font-medium text-white/90">{pct(recentRandom.winRate)}</td>
+					</tr>
+					<tr>
+						<td class="py-2 text-white/50">Avg Moves</td>
+						<td class="py-2 font-medium text-white/90">{lifetimeRandom.avgMoves.toFixed(1)}</td>
+						<td class="py-2 font-medium text-white/90">{recentRandom.avgMoves.toFixed(1)}</td>
 					</tr>
 					<tr>
 						<td class="py-2 text-white/50">Avg Completion</td>

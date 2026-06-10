@@ -29,6 +29,14 @@ describe('Game', () => {
 			expect(game.canUndo).toBe(false);
 			expect(game.canRedo).toBe(false);
 		});
+
+		it('moveCount starts at 0 and resets on newGame', () => {
+			expect(game.moveCount).toBe(0);
+			game.drawFromStock();
+			expect(game.moveCount).toBe(1);
+			game.newGame();
+			expect(game.moveCount).toBe(0);
+		});
 	});
 
 	describe('drawFromStock', () => {

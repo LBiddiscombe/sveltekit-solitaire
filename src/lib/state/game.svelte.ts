@@ -34,6 +34,8 @@ class Game {
 
 	mode = $state<GameMode>('random');
 
+	moveCount = $state(0);
+
 	hasSaved = $state(false);
 
 	undoStack = $state<GameSnapshot[]>([]);
@@ -84,6 +86,7 @@ class Game {
 		this.clearSaved();
 		this.hasSaved = false;
 		this.difficulty = null;
+		this.moveCount = 0;
 		this.clearSolution();
 		const rand = seed !== undefined ? mulberry32(seed) : Math.random;
 		const deck = shuffle(createDeck(), rand);
@@ -127,6 +130,7 @@ class Game {
 		}
 
 		this.saveSnapshot();
+		this.moveCount++;
 		const count = Math.min(3, this.stock.length);
 		const drawn = this.stock.splice(0, count);
 		for (const card of drawn) {
@@ -207,6 +211,7 @@ class Game {
 		this.clearHint();
 		this.clearSolution();
 		this.saveSnapshot();
+		this.moveCount++;
 
 		const movedCards = sourcePile.splice(cardIndex, count);
 		targetPile.push(...movedCards);
@@ -277,6 +282,7 @@ class Game {
 			const foundationIndex = findMovesToFoundation(card, this.foundations);
 			if (foundationIndex !== null) {
 				this.saveSnapshot();
+				this.moveCount++;
 				const [moved] = pile.splice(cardIndex, 1);
 				this.foundations[foundationIndex].push(moved);
 				if (ref.kind === 'tableau' && pile.length > 0) {
@@ -297,6 +303,7 @@ class Game {
 			const tableauIndex = findMovesToTableau(card, this.tableau);
 			if (tableauIndex !== null) {
 				this.saveSnapshot();
+				this.moveCount++;
 				const [moved] = pile.splice(cardIndex, 1);
 				this.tableau[tableauIndex].push(moved);
 				if (ref.kind === 'tableau' && pile.length > 0) {
@@ -324,6 +331,7 @@ class Game {
 		if (tableauIndex === null) return false;
 
 		this.saveSnapshot();
+		this.moveCount++;
 		const count = pile.length - cardIndex;
 		const movedCards = pile.splice(cardIndex, count);
 		this.tableau[tableauIndex].push(...movedCards);
@@ -451,7 +459,9 @@ class Game {
 					tableau: this.tableau,
 					foundations: this.foundations,
 					seed: this.seed,
-					mode: this.mode
+					mode: this.mode,
+					difficulty: this.difficulty,
+					moveCount: this.moveCount
 				})
 			);
 		} catch {
@@ -602,6 +612,8 @@ if (browser) {
 			game.redoStack = data.redoStack ?? [];
 			game.seed = data.seed;
 			game.mode = data.mode ?? 'random';
+			game.difficulty = data.difficulty ?? null;
+			game.moveCount = data.moveCount ?? 0;
 			game.hasSaved = true;
 		}
 	} catch {
