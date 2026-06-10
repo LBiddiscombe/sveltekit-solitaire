@@ -30,9 +30,16 @@ _Avoid_: AnimationController, animController, inline orchestration in components
 A tableau-to-tableau move is considered productive enough to hint when it either (a) reveals a face-down card, (b) reveals a face-up card that can immediately move to a foundation, or (c) empties a column by moving its only remaining card (which is not a King). Moving a lone King between empty columns never reveals anything and is never hinted. The hint system does not evaluate moves 2+ steps deep.
 _Rationale_: Prevents hint cycles where cards are shuffled between columns without advancing the game.
 
-**Stuck (isStuck)**:
-A game state where no immediate moves remain and the greedy stock-cycle simulation found no playable cards after 3 recycles. Set by the hint system when the player asks for a hint and the simulation confirms a dead end. Cleared automatically on any action (draw, move, undo, redo). May false-negative in rare multi-ply sequences.
-_Avoid_: Dead, lost, game over (too final — the overlay is dismissable)
+**Deadlocked**:
+A game state where zero legal moves exist — no tableau/waste/foundation moves, and the stock is empty with no cards to recycle. The solver returns `nextMove: null`. The player sees a "Stuck" modal with Undo / Retry Same Deal / New Game buttons. Only reachable in `'winnable'` mode (hints hidden in `'random'` mode).
+_Avoid_: Stuck (too vague — subsumes Deadlocked, Hopeless, and Uncertain)
+
+**Hopeless**:
+A game state where legal moves exist, but the solver has exhaustively proven that none of them lead to a solution (`status: 'unsolvable'` with `nextMove` non-null). The player sees a modal with Undo / Retry Same Deal / New Game buttons. Only shown in `'winnable'` mode. Undo steps back one move at a time — the player can re-request a hint from the earlier position.
+_Avoid_: Stuck, dead end, lost
+
+**Uncertain**:
+A game state where the solver timed out before fully exploring all branches (`status: 'undetermined'`). It found a move that wasn't exhaustively disproven, but has no guarantee it leads to a win. Distinct from Deadlocked or Hopeless.
 
 **SimulateStockCycle**:
 A deep-clone simulation that runs up to 3 full stock recycles (draw → try each card against foundation then tableau → recycle) to determine whether any card can ever be placed. Used as the authoritative "game is truly dead" check: if it returns false, no amount of stock cycling will produce a move. Used to gate the New-Game confirmation dialog.

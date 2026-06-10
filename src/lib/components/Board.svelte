@@ -27,7 +27,7 @@
 	let celebrationDone = $state(false);
 	let showNewGameConfirm = $state(false);
 	let showStuckDialog = $state(false);
-	let stuckStatus = $state<string | null>(null);
+	let showHopelessDialog = $state(false);
 	let hintToken = 0;
 	let searchingWinnable = $state(false);
 	let debugStepping = $state(false);
@@ -192,6 +192,7 @@
 		celebrationDone = false;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
+		showHopelessDialog = false;
 		debugStepping = false;
 		debugPlaying = false;
 		animationHost.dispose();
@@ -228,6 +229,7 @@
 		if (animationHost.busy || game.seed === undefined) return;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
+		showHopelessDialog = false;
 		animationHost.dispose();
 
 		const foundationCount = game.foundations.reduce((sum, f) => sum + f.length, 0);
@@ -274,11 +276,18 @@
 		game.hintLoading = true;
 		game.clearHint();
 		showStuckDialog = false;
+		showHopelessDialog = false;
 
 		try {
 			const result = await hintSearch(snapshotGame(), 500);
 
-			if (result.nextMove) {
+			if (result.status === 'unsolvable') {
+				if (result.nextMove) {
+					showHopelessDialog = true;
+				} else {
+					showStuckDialog = true;
+				}
+			} else if (result.nextMove) {
 				const hint = solverMoveToHint(result.nextMove);
 				const token = ++hintToken;
 				game.hint = hint;
@@ -291,12 +300,8 @@
 					await animationHost.showHint(hint);
 					game.clearHint();
 				}
-			} else {
-				stuckStatus = result.status;
-				showStuckDialog = true;
 			}
 		} catch {
-			stuckStatus = 'undetermined';
 			showStuckDialog = true;
 		} finally {
 			game.hintLoading = false;
@@ -361,19 +366,55 @@
 
 {#snippet stuckContent()}
 	<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
-		{#if stuckStatus === 'unsolvable'}
-			The solver has determined this deal is unwinnable from this position.
-		{:else}
-			The solver couldn't find a next move within its time limit. If you spot a workaround, go for
-			it!
-		{/if}
+		No valid moves remain in this position. Undo a few moves and try a different approach.
 	</p>
 	<div class="flex justify-center gap-3">
 		<button
-			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700"
-			onclick={() => (showStuckDialog = false)}
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700 disabled:opacity-30"
+			disabled={!game.canUndo}
+			onclick={() => {
+				game.undo();
+				showStuckDialog = false;
+			}}
 		>
-			Keep Trying
+			Undo
+		</button>
+		{#if game.seed !== undefined}
+			<button
+				class="rounded-lg bg-emerald-600 px-6 py-2 text-white hover:bg-emerald-700"
+				onclick={retrySameDeal}
+			>
+				Retry Same Deal
+			</button>
+		{/if}
+		<button
+			class="rounded-lg bg-amber-600 px-6 py-2 text-white hover:bg-amber-700"
+			onclick={() => {
+				const fc = game.foundations.reduce((sum, f) => sum + f.length, 0);
+				recordGame(game.mode, false, fc, game.moveCount);
+				startNewGame();
+			}}
+		>
+			New Game
+		</button>
+	</div>
+{/snippet}
+
+{#snippet hopelessContent()}
+	<p class="mx-auto mb-4 max-w-sm text-sm text-gray-600">
+		There are still valid moves, but the solver has proven none of them lead to a solution. Undo a
+		few moves and try a different approach.
+	</p>
+	<div class="flex justify-center gap-3">
+		<button
+			class="rounded-lg bg-gray-600 px-6 py-2 text-white hover:bg-gray-700 disabled:opacity-30"
+			disabled={!game.canUndo}
+			onclick={() => {
+				game.undo();
+				showHopelessDialog = false;
+			}}
+		>
+			Undo
 		</button>
 		{#if game.seed !== undefined}
 			<button
@@ -479,7 +520,11 @@
 	{/if}
 
 	{#if showStuckDialog}
-		{@render modal('No Moves Found', stuckContent)}
+		{@render modal('Stuck', stuckContent)}
+	{/if}
+
+	{#if showHopelessDialog}
+		{@render modal('Unwinnable Position', hopelessContent)}
 	{/if}
 
 	{#if searchingWinnable}
@@ -593,15 +638,17 @@
 		<div
 			class="flex flex-nowrap items-center rounded-xl bg-black/20 px-1 py-1 shadow-lg shadow-black/10 backdrop-blur-sm"
 		>
-			<button
-				class={`${toolBtnClass} hover:text-amber-300`}
-				disabled={solving || searchingWinnable || debugStepping || game.hintLoading}
-				onclick={handleHintClick}
-			>
-				<span class="-mt-0.5 text-2xl leading-none">✦</span>
-				{game.hintLoading ? '...' : 'Hint'}
-			</button>
-			<div class="h-5 w-px bg-white/10"></div>
+			{#if game.mode === 'winnable'}
+				<button
+					class={`${toolBtnClass} hover:text-amber-300`}
+					disabled={solving || searchingWinnable || debugStepping || game.hintLoading}
+					onclick={handleHintClick}
+				>
+					<span class="-mt-0.5 text-2xl leading-none">✦</span>
+					{game.hintLoading ? '...' : 'Hint'}
+				</button>
+				<div class="h-5 w-px bg-white/10"></div>
+			{/if}
 			<button
 				class={toolBtnClass}
 				disabled={!game.canUndo || solving || searchingWinnable || debugStepping}
