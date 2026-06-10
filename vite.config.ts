@@ -30,9 +30,9 @@ export default defineConfig({
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: [
-					'src/**/*.svelte.{test,spec}.{js,ts}',
-					'src/scripts/calibrate-difficulty.spec.ts'
-				]
+						'src/**/*.svelte.{test,spec}.{js,ts}',
+						'src/scripts/calibrate-difficulty.spec.ts'
+					]
 				}
 			}
 		]

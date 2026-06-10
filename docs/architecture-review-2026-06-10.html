@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>Architecture review — sveltekit-solitaire</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script type="module">
+			import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+			mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+		</script>
+		<style>
+			.seam {
+				stroke-dasharray: 4 4;
+			}
+			.leak {
+				stroke: #dc2626;
+			}
+			.deep {
+				background: linear-gradient(135deg, #0f172a, #1e293b);
+			}
+			.card-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 1.5rem;
+			}
+			.module-box {
+				border: 2px solid #334155;
+				border-radius: 0.5rem;
+				padding: 0.75rem;
+				background: #f8fafc;
+			}
+			.module-box.deep-module {
+				border-color: #0f172a;
+				border-width: 3px;
+				background: #1e293b;
+				color: #e2e8f0;
+			}
+			.module-box.deep-module .internal {
+				opacity: 0.5;
+				font-size: 0.75rem;
+			}
+			.arrow-line {
+				stroke: #64748b;
+				stroke-width: 2;
+				fill: none;
+			}
+			.arrow-head {
+				fill: #64748b;
+			}
+			.leak-arrow {
+				stroke: #dc2626;
+				stroke-width: 2;
+				fill: none;
+			}
+			.leak-head {
+				fill: #dc2626;
+			}
+		</style>
+	</head>
+	<body class="bg-stone-50 font-sans text-slate-900">
+		<main class="mx-auto max-w-5xl space-y-12 px-6 py-12">
+			<header class="space-y-2">
+				<h1 class="text-3xl font-bold tracking-tight">Architecture review — sveltekit-solitaire</h1>
+				<p class="text-sm text-slate-500">10 June 2026</p>
+				<div class="flex flex-wrap gap-3 text-xs">
+					<span class="inline-flex items-center gap-1.5"
+						><span class="inline-block h-3 w-3 rounded border border-slate-600 bg-white"></span>
+						Module</span
+					>
+					<span class="inline-flex items-center gap-1.5"
+						><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-400"></span>
+						Seam</span
+					>
+					<span class="inline-flex items-center gap-1.5"
+						><span class="inline-block h-0.5 w-4 border-t-2 border-red-600"></span> Leakage</span
+					>
+					<span class="inline-flex items-center gap-1.5"
+						><span
+							class="inline-block h-3 w-3 rounded border-2 border-slate-900 bg-slate-800"
+						></span>
+						Deep module</span
+					>
+				</div>
+			</header>
+
+			<section id="candidates" class="space-y-10">
+				<!-- CANDIDATE 1 -->
+				<article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h2 class="text-xl font-semibold">Extract persistence behind a seam</h2>
+							<div class="mt-1 flex flex-wrap gap-2">
+								<span
+									class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+									>Strong</span
+								>
+								<span
+									class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+									>ports &amp; adapters</span
+								>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3 font-mono text-xs text-slate-500">
+						src/lib/state/game.svelte.ts (lines 452–503, 603–624)
+					</div>
+
+					<div class="card-grid">
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								Before
+							</div>
+							<div class="module-box relative" style="padding-bottom: 2rem">
+								<div class="text-xs font-bold tracking-wider uppercase">Game</div>
+								<div class="mt-2 space-y-1 text-xs text-slate-600">
+									<div>stock, waste, tableau, foundations</div>
+									<div>undoStack, redoStack</div>
+									<div>dragging, hint, lastAutoMove</div>
+									<div class="font-semibold text-amber-700">persistTimer</div>
+									<div class="font-semibold text-amber-700">hasSaved</div>
+									<div class="font-semibold text-amber-700">persist()</div>
+									<div class="font-semibold text-amber-700">flushPersist()</div>
+									<div class="font-semibold text-amber-700">clearSaved()</div>
+									<div class="font-semibold text-amber-700">writePersist()</div>
+									<div class="font-semibold text-amber-700">localStorage key</div>
+								</div>
+								<svg class="absolute right-1 bottom-1 h-4 w-4" viewBox="0 0 16 16">
+									<text x="0" y="12" class="text-xs" fill="#d97706">⚠</text>
+								</svg>
+							</div>
+							<div class="mt-1 ml-2 flex items-center gap-1 text-xs text-red-600">
+								<svg class="h-3 w-3" viewBox="0 0 16 16">
+									<line x1="0" y1="8" x2="16" y2="8" class="leak-arrow" />
+									<polygon points="16,8 11,4 11,12" class="leak-head" />
+								</svg>
+								Persistence concerns leak into every mutation method
+							</div>
+						</div>
+
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								After
+							</div>
+							<div class="space-y-3">
+								<div class="module-box deep-module">
+									<div class="text-xs font-bold tracking-wider uppercase">Game</div>
+									<div class="internal mt-1">stock, waste, tableau, foundations</div>
+									<div class="internal">undoStack, redoStack</div>
+									<div class="internal">dragging, hint</div>
+								</div>
+								<div class="flex justify-center text-xs text-slate-400">── seam ──</div>
+								<div class="module-box" style="border-style: dashed">
+									<div class="text-xs font-bold tracking-wider uppercase">GameStore (adapter)</div>
+									<div class="mt-1 flex gap-2 text-xs">
+										<span class="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700"
+											>save(snapshot)</span
+										>
+										<span class="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">load()</span>
+										<span class="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">clear()</span>
+									</div>
+									<div class="mt-1 text-xs text-slate-400">
+										2 adapters: LocalStorageStore, InMemoryStore (tests)
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+						<div>
+							<h4 class="font-semibold text-slate-700">Problem</h4>
+							<p class="text-slate-600">
+								Persistence plumbing (debounce timer, localStorage key, won-gate) is inline in 7
+								Game methods. Every mutation must call <code class="text-xs">persist()</code> — easy
+								to forget, hard to test.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Solution</h4>
+							<p class="text-slate-600">
+								Extract a <code class="text-xs">GameStore</code> seam:
+								<code class="text-xs">save(GameSnapshot)</code>,
+								<code class="text-xs">load(): GameSnapshot | null</code>,
+								<code class="text-xs">clear()</code>. Game calls
+								<code class="text-xs">store.save()</code> after mutations. The timer and
+								localStorage key live inside the adapter.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Wins</h4>
+							<ul class="list-disc space-y-0.5 pl-4 text-slate-600">
+								<li>Locality: persistence bugs live in one module</li>
+								<li>Test seam: InMemoryStore → no localStorage mocking</li>
+								<li>Interface shrinks: Game loses 4 methods, 1 flag, 1 timer</li>
+								<li>Persistence strategy swaps without touching Game</li>
+							</ul>
+						</div>
+					</div>
+
+					<div
+						class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
+					>
+						<strong>Note:</strong> The <code class="text-xs">if (browser)</code> block at line 603
+						would also move into the adapter:
+						<code class="text-xs">GameStore.hydrate(game)</code> on import.
+					</div>
+				</article>
+
+				<!-- CANDIDATE 2 -->
+				<article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h2 class="text-xl font-semibold">Consolidate card display representation</h2>
+							<div class="mt-1 flex flex-wrap gap-2">
+								<span
+									class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+									>Strong</span
+								>
+								<span
+									class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+									>in-process</span
+								>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3 font-mono text-xs text-slate-500">
+						src/lib/game/card.ts · src/lib/game/card-images.ts · src/lib/components/Board.svelte
+						(lines 30–55)
+					</div>
+
+					<div class="card-grid">
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								Before
+							</div>
+							<div class="space-y-2">
+								<div class="module-box text-xs">
+									<div class="font-bold uppercase">card.ts</div>
+									<div class="mt-1 text-slate-600">suitColor()<br />rankOrder()</div>
+								</div>
+								<svg class="mx-auto h-4 w-full" viewBox="0 0 100 16">
+									<line x1="10" y1="8" x2="90" y2="8" class="arrow-line" />
+									<polygon points="90,8 83,4 83,12" class="arrow-head" />
+								</svg>
+								<div class="module-box text-xs">
+									<div class="font-bold uppercase">card-images.ts</div>
+									<div class="mt-1 text-slate-600">
+										cardImageUrl(card)<br />cardBackUrl()<br />preloadCardImages()
+									</div>
+									<div class="mt-1 text-amber-700">Duplicate rank/suit maps</div>
+								</div>
+								<svg class="mx-auto h-4 w-full" viewBox="0 0 100 16">
+									<line x1="10" y1="8" x2="90" y2="8" class="arrow-line" />
+									<polygon points="90,8 83,4 83,12" class="arrow-head" />
+								</svg>
+								<div class="module-box text-xs">
+									<div class="font-bold uppercase">Board.svelte</div>
+									<div class="mt-1 text-slate-600">
+										SUIT_SYMBOLS<br />RANK_LABELS<br />cardLabel(card)
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								After
+							</div>
+							<div class="module-box deep-module">
+								<div class="text-xs font-bold tracking-wider uppercase">display.ts</div>
+								<div class="mt-2 flex flex-wrap gap-1.5 text-xs">
+									<span class="rounded bg-slate-100 px-1.5 py-0.5">cardLabel(card): string</span>
+									<span class="rounded bg-slate-100 px-1.5 py-0.5">cardImageUrl(card): string</span>
+									<span class="rounded bg-slate-100 px-1.5 py-0.5">cardBackUrl(): string</span>
+									<span class="rounded bg-slate-100 px-1.5 py-0.5"
+										>suitColor(suit): 'red'|'black'</span
+									>
+									<span class="rounded bg-slate-100 px-1.5 py-0.5">rankOrder(rank): number</span>
+									<span class="rounded bg-slate-100 px-1.5 py-0.5">preloadCardImages(): void</span>
+								</div>
+								<div class="internal mt-1">
+									<span class="text-slate-400"
+										>SUIT_SYMBOLS, RANK_LABELS, rankMap, suitMap, globImages —</span
+									>
+									<span class="text-emerald-300">all private</span>
+								</div>
+							</div>
+							<div class="mt-1 text-xs text-slate-500">
+								3 callers, 1 import. Deletable: all card-display logic in one place.
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+						<div>
+							<h4 class="font-semibold text-slate-700">Problem</h4>
+							<p class="text-slate-600">
+								Three shallow modules each own a fragment of "how a card looks." Adding a new
+								display concern (e.g. card border colour for highlight) means editing 3 files. The
+								rank/suit maps are duplicated between
+								<code class="text-xs">card-images.ts</code> and
+								<code class="text-xs">Board.svelte</code>.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Solution</h4>
+							<p class="text-slate-600">
+								Merge into one <code class="text-xs">display.ts</code> module exportig 6 functions.
+								All maps, glob imports, and image cache become private internals. Board.svelte
+								imports just what it needs from one place.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Wins</h4>
+							<ul class="list-disc space-y-0.5 pl-4 text-slate-600">
+								<li>Locality: card display logic in one module</li>
+								<li>Deletion test: deleting it concentrates complexity in one place, not 3</li>
+								<li>Interface shrinks: one import path instead of 3</li>
+								<li>No more duplicate rank/suit maps</li>
+							</ul>
+						</div>
+					</div>
+				</article>
+
+				<!-- CANDIDATE 3 -->
+				<article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h2 class="text-xl font-semibold">Deepen the solver boundary</h2>
+							<div class="mt-1 flex flex-wrap gap-2">
+								<span
+									class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+									>Strong</span
+								>
+								<span
+									class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+									>in-process</span
+								>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3 font-mono text-xs text-slate-500">
+						src/lib/components/Board.svelte (lines 9–114) · src/lib/state/game.svelte.ts (line 443,
+						private snapshot)
+					</div>
+
+					<div class="mb-4">
+						<div class="rounded-lg border border-slate-200 bg-white p-4">
+							<pre class="mermaid">
+graph LR
+  subgraph Before
+    B1[Board.svelte]
+    M1[generateMoves] --- B1
+    S1[deepClone] --- B1
+    N1[GameSnapshot type] --- B1
+    G1[Game.svelte.ts] -- snapshot() is private --> X1[✗]
+    B1 -- duplicates snapshotGame() --> G1
+  end
+  subgraph After
+    B2[Board.svelte] -- hint() --> SH[SolverHost]
+    SH -- .canProceed() --> B2
+    SH -. internal .-> SM[solver modules]
+    style SH fill:#1e293b,color:#e2e8f0,stroke:#0f172a,stroke-width:3px
+    style SM fill:#e2e8f0,stroke:#94a3b8,stroke-dasharray:4 4
+  end
+							</pre
+							>
+						</div>
+					</div>
+
+					<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+						<div>
+							<h4 class="font-semibold text-slate-700">Problem</h4>
+							<p class="text-slate-600">
+								Board.svelte imports 4 solver-internal modules to answer one question: "are there
+								any legal moves?" It also duplicates
+								<code class="text-xs">Game.snapshot()</code> because it's private (line 103). Every
+								caller that needs solver interaction must know about
+								<code class="text-xs">generateMoves</code>, <code class="text-xs">deepClone</code>,
+								and <code class="text-xs">GameSnapshot</code>.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Solution</h4>
+							<p class="text-slate-600">
+								Add <code class="text-xs">canProceed(): boolean</code> to Game (or expose snapshot()
+								publicly). The solver host module (or Game itself) answers "are we stuck?" without
+								leaking move generation internals.
+								<code class="text-xs">solverMoveToHint()</code> moves from Board into the solver or
+								a bridge module.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Wins</h4>
+							<ul class="list-disc space-y-0.5 pl-4 text-slate-600">
+								<li>Leverage: Board stops importing 4 solver-internal modules</li>
+								<li>Interface: Game.snapshot() going public removes the duplicate</li>
+								<li>Locality: "stuck" heuristic lives in one place</li>
+								<li>Testable: canProceed() is one assertion instead of 4-import orchestration</li>
+							</ul>
+						</div>
+					</div>
+				</article>
+
+				<!-- CANDIDATE 4 -->
+				<article class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+					<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h2 class="text-xl font-semibold">Pre-compute animation plans</h2>
+							<div class="mt-1 flex flex-wrap gap-2">
+								<span
+									class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+									>Worth exploring</span
+								>
+								<span
+									class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+									>in-process</span
+								>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-3 font-mono text-xs text-slate-500">
+						src/lib/animations/host.svelte.ts (812 lines) · src/lib/state/game.svelte.ts
+					</div>
+
+					<div class="card-grid">
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								Before
+							</div>
+							<div class="space-y-2">
+								<div class="module-box text-xs">
+									<div class="font-bold uppercase">AnimationHost</div>
+									<div class="mt-1 text-slate-600">
+										animateDraw() calls game.drawFromStock()
+										<span class="text-red-500">mid-animation</span>
+									</div>
+									<div class="text-slate-600">
+										startDeal() calls game.dealCardToTableau()
+										<span class="text-red-500">per card</span>
+									</div>
+									<div class="text-slate-600">
+										startSolve() loops game.solveTickAt()
+										<span class="text-red-500">interleaved</span>
+									</div>
+									<div class="text-slate-600">
+										animateAutoMove() calls game.autoMove()
+										<span class="text-red-500">before animation</span>
+									</div>
+									<div class="mt-1 text-amber-600">
+										State mutation and visual playback are intertwined
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div>
+							<div class="mb-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+								After
+							</div>
+							<div class="space-y-2">
+								<div class="module-box text-xs">
+									<div class="font-bold uppercase">pre-compute</div>
+									<div class="text-slate-600">Plan = [{ from, to, card, kind }, ...]</div>
+								</div>
+								<svg class="mx-auto h-4 w-full" viewBox="0 0 100 16">
+									<line x1="10" y1="8" x2="90" y2="8" class="arrow-line" />
+									<polygon points="90,8 83,4 83,12" class="arrow-head" />
+								</svg>
+								<div class="module-box deep-module">
+									<div class="text-xs font-bold tracking-wider uppercase">AnimationHost</div>
+									<div class="internal mt-1">Receives a pre-computed plan</div>
+									<div class="internal">Does NOT mutate game state</div>
+									<div class="internal">Pure DOM animation playback</div>
+								</div>
+								<div class="mt-1 text-xs text-emerald-600">
+									State mutation happens before animation begins
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+						<div>
+							<h4 class="font-semibold text-slate-700">Problem</h4>
+							<p class="text-slate-600">
+								AnimationHost calls Game methods at arbitrary points during animation. Understanding
+								the deal flow requires reading both files simultaneously.
+								<code class="text-xs">startSolve</code> mutates game state step-by-step while
+								animating — hard to debug, hard to test.
+							</p>
+						</div>
+						<div>
+							<h4 class="font-semibold text-slate-700">Solution</h4>
+							<p class="text-slate-600">
+								Mutate game state first, producing an
+								<code class="text-xs">AnimationPlan[]</code> (from/to rects, card images, timing).
+								AnimationHost receives the plan and only plays it back. No game state references
+								during playback.
+							</p>
+						</div>
+						<div>
+							<ul class="list-disc space-y-0.5 pl-4 text-sm text-slate-600">
+								<li>Leverage: AnimationHost can be tested with synthetic plans, no game state</li>
+								<li>Locality: all game-state mutation lives in Game</li>
+								<li>Debug: plan is inspectable — replay or skip at will</li>
+								<li>
+									<strong>Trade-off:</strong> requires computing card rects from state alone
+									(already possible via pileRect/pileCascade in AnimationHost)
+								</li>
+							</ul>
+						</div>
+					</div>
+
+					<div
+						class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
+					>
+						<strong>Caveat:</strong> This is the largest refactor of the four. The deal animation
+						iterates 28 cards, and the solve animation loops through unknown move count. The plan
+						must account for cascade changes after each card removal (face-up flips). Worth
+						prototyping in a branch before committing.
+					</div>
+				</article>
+			</section>
+
+			<section
+				id="top-recommendation"
+				class="rounded-xl border-2 border-slate-900 bg-slate-50 p-6 shadow-md"
+			>
+				<h2 class="text-2xl font-bold">Top recommendation</h2>
+				<p class="mt-2 text-lg font-medium text-slate-700">
+					<a href="#candidates" class="underline decoration-emerald-600 underline-offset-2"
+						>Extract persistence behind a seam</a
+					>
+				</p>
+				<p class="mt-2 text-sm text-slate-600">
+					It's the highest-leverage, lowest-risk change. The persistence code is already
+					self-contained (lines 452–503, 603–624 in game.svelte.ts) — extracting it into a
+					<code class="text-xs">GameStore</code> module with a clear interface removes 4 methods and
+					1 state flag from the overloaded Game class, creates a real test seam (localStorage vs
+					in-memory), and requires no behavioural changes. It's a pure extraction, not a redesign.
+					Do this first; it makes the Game class smaller and the remaining candidates easier to
+					reason about.
+				</p>
+			</section>
+		</main>
+	</body>
+</html>

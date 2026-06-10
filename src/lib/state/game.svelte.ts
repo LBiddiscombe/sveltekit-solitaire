@@ -1,10 +1,9 @@
 import { browser } from '$app/environment';
+import { gameStore } from '$lib/state/game-store.svelte';
 import type { Card, PileRef } from '$lib/game/types';
 import { createDeck, shuffle, deal, mulberry32 } from '$lib/game/deal';
 import type { GameMode } from '$lib/stats';
 import type { Difficulty } from '$lib/game/solver/types';
-
-const STORAGE_KEY = 'solitaire-game';
 import {
 	canPlaceOnTableau,
 	canPlaceOnFoundation,
@@ -35,8 +34,6 @@ class Game {
 	mode = $state<GameMode>('random');
 
 	moveCount = $state(0);
-
-	hasSaved = $state(false);
 
 	undoStack = $state<GameSnapshot[]>([]);
 	redoStack = $state<GameSnapshot[]>([]);
@@ -71,8 +68,6 @@ class Game {
 
 	isWon = $derived(this.foundations.every((p) => p.length === 13));
 
-	private persistTimer: ReturnType<typeof setTimeout> | null = null;
-
 	canSolve = $derived(
 		this.stock.length === 0 &&
 			this.waste.length === 0 &&
@@ -83,8 +78,7 @@ class Game {
 	canRedo = $derived(this.redoStack.length > 0);
 
 	newGame(seed?: number, mode?: GameMode) {
-		this.clearSaved();
-		this.hasSaved = false;
+		gameStore.delete();
 		this.difficulty = null;
 		this.moveCount = 0;
 		this.clearSolution();
@@ -449,57 +443,22 @@ class Game {
 		});
 	}
 
-	private writePersist() {
-		try {
-			localStorage.setItem(
-				STORAGE_KEY,
-				JSON.stringify({
-					stock: this.stock,
-					waste: this.waste,
-					tableau: this.tableau,
-					foundations: this.foundations,
-					seed: this.seed,
-					mode: this.mode,
-					difficulty: this.difficulty,
-					moveCount: this.moveCount
-				})
-			);
-		} catch {
-			/* best-effort */
-		}
-	}
-
 	persist() {
-		if (!browser || this.isWon) {
-			if (this.isWon) this.clearSaved();
+		if (!browser) return;
+		if (this.isWon) {
+			gameStore.delete();
 			return;
 		}
-		if (this.persistTimer !== null) clearTimeout(this.persistTimer);
-		this.persistTimer = setTimeout(() => {
-			this.persistTimer = null;
-			this.writePersist();
-		}, 5_000);
-	}
-
-	flushPersist() {
-		if (this.persistTimer !== null) {
-			clearTimeout(this.persistTimer);
-			this.persistTimer = null;
-			this.writePersist();
-		}
-	}
-
-	private clearSaved() {
-		if (!browser) return;
-		if (this.persistTimer !== null) {
-			clearTimeout(this.persistTimer);
-			this.persistTimer = null;
-		}
-		try {
-			localStorage.removeItem(STORAGE_KEY);
-		} catch {
-			/* best-effort */
-		}
+		gameStore.set({
+			stock: this.stock,
+			waste: this.waste,
+			tableau: this.tableau,
+			foundations: this.foundations,
+			seed: this.seed,
+			mode: this.mode,
+			difficulty: this.difficulty,
+			moveCount: this.moveCount
+		});
 	}
 
 	private saveSnapshot() {
@@ -597,28 +556,33 @@ export const game = new Game();
 
 export function persistAfterDeal() {
 	game.persist();
-	game.flushPersist();
+	gameStore.flush();
 }
 
 if (browser) {
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (raw) {
-			const data = JSON.parse(raw);
+		const data = gameStore.get<{
+			stock: Card[];
+			waste: Card[];
+			tableau: Card[][];
+			foundations: Card[][];
+			seed?: number;
+			mode: GameMode;
+			difficulty: Difficulty | null;
+			moveCount: number;
+		}>();
+		if (data) {
 			game.stock = data.stock;
 			game.waste = data.waste;
 			game.tableau = data.tableau;
 			game.foundations = data.foundations;
-			game.undoStack = data.undoStack ?? [];
-			game.redoStack = data.redoStack ?? [];
 			game.seed = data.seed;
 			game.mode = data.mode ?? 'random';
 			game.difficulty = data.difficulty ?? null;
 			game.moveCount = data.moveCount ?? 0;
-			game.hasSaved = true;
 		}
 	} catch {
 		/* best-effort */
 	}
-	window.addEventListener('beforeunload', () => game.flushPersist());
+	window.addEventListener('beforeunload', () => gameStore.flush());
 }

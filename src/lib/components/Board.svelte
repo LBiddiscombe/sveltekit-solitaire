@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { game, persistAfterDeal } from '$lib/state/game.svelte';
+	import { gameStore } from '$lib/state/game-store.svelte';
 	import { recordGame } from '$lib/stats';
 
 	import { animationHost } from '$lib/animations/host.svelte';
@@ -254,7 +255,7 @@
 		} catch {
 			/* best-effort */
 		}
-		if (!localStorage.getItem('solitaire-game')) {
+		if (!gameStore.hasSaved) {
 			startNewGame();
 		}
 	});
