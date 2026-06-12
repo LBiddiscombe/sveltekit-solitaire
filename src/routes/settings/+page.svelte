@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolveRoute } from '$app/paths';
 	import { getSettings, updateSettings } from '$lib/settings';
+	import { game } from '$lib/state/game.svelte';
 
 	let settings = $state(getSettings());
 
@@ -8,9 +9,35 @@
 		const next = !settings.onlyWinnable;
 		settings = updateSettings({ onlyWinnable: next });
 	}
+
+	const mailtoHref = $derived.by(() => {
+		const subject = game.seed !== undefined ? `Solitaire Issue - ${game.seed}` : 'Solitaire Issue';
+
+		const state = {
+			stock: game.stock,
+			waste: game.waste,
+			tableau: game.tableau,
+			foundations: game.foundations,
+			seed: game.seed,
+			mode: game.mode,
+			difficulty: game.difficulty,
+			moveCount: game.moveCount
+		};
+
+		const body = [
+			"Please describe the issue you're experiencing:",
+			'',
+			'[Describe your issue here]',
+			'',
+			'--- Game State ---',
+			JSON.stringify(state, null, 2)
+		].join('\n');
+
+		return `mailto:lee.biddiscombe@btinternet.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+	});
 </script>
 
-<div class="flex min-h-[calc(100dvh-12rem)] items-center justify-center px-4">
+<div class="flex flex-col items-center gap-6 px-4 py-8 pb-28">
 	<div class="w-full max-w-md rounded-xl bg-white/5 p-8 backdrop-blur-sm">
 		<h1 class="text-2xl font-bold text-white/90">Settings</h1>
 		<div class="mt-6 space-y-6">
@@ -39,6 +66,20 @@
 				</button>
 			</div>
 		</div>
+	</div>
+
+	<div class="w-full max-w-md rounded-xl bg-white/5 p-8 backdrop-blur-sm">
+		<h2 class="text-lg font-bold text-white/90">Report Issue</h2>
+		<p class="mt-2 text-sm leading-relaxed text-white/50">
+			Open an email with the current game state attached for debugging.
+		</p>
+		<a
+			href={mailtoHref}
+			rel="external"
+			class="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white/80 transition-all hover:bg-white/20 active:scale-95"
+		>
+			Report Issue
+		</a>
 	</div>
 </div>
 
