@@ -30,7 +30,7 @@
 			'[Describe your issue here]',
 			'',
 			'--- Game State ---',
-			JSON.stringify(state, null, 2)
+			JSON.stringify(state)
 		].join('\n');
 
 		return `mailto:lee.biddiscombe@btinternet.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
