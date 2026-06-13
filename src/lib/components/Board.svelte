@@ -198,7 +198,6 @@
 
 	async function startNewGame() {
 		if (animationHost.busy || solving || searchingWinnable) return;
-		celebrationDone = false;
 		winBusy = false;
 		showNewGameConfirm = false;
 		showStuckDialog = false;
@@ -227,6 +226,7 @@
 			game.difficulty = null;
 		}
 
+		celebrationDone = false;
 		await animationHost.startDeal();
 		persistAfterDeal();
 
